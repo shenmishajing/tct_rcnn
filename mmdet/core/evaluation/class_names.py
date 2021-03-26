@@ -82,6 +82,12 @@ def coco_classes():
     ]
 
 
+def tct_classes():
+    return [
+        'ASCH', 'ASCUS', 'HSIL', 'LSIL', 'SQCA'
+    ]
+
+
 def cityscapes_classes():
     return [
         'person', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle',
@@ -94,6 +100,7 @@ dataset_aliases = {
     'imagenet_det': ['det', 'imagenet_det', 'ilsvrc_det'],
     'imagenet_vid': ['vid', 'imagenet_vid', 'ilsvrc_vid'],
     'coco': ['coco', 'mscoco', 'ms_coco'],
+    'tct': ['tct'],
     'wider_face': ['WIDERFaceDataset', 'wider_face', 'WDIERFace'],
     'cityscapes': ['cityscapes']
 }

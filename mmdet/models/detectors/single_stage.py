@@ -16,23 +16,23 @@ class SingleStageDetector(BaseDetector):
 
     def __init__(self,
                  backbone,
-                 neck=None,
-                 bbox_head=None,
-                 train_cfg=None,
-                 test_cfg=None,
-                 pretrained=None):
+                 neck = None,
+                 bbox_head = None,
+                 train_cfg = None,
+                 test_cfg = None,
+                 pretrained = None):
         super(SingleStageDetector, self).__init__()
         self.backbone = build_backbone(backbone)
         if neck is not None:
             self.neck = build_neck(neck)
-        bbox_head.update(train_cfg=train_cfg)
-        bbox_head.update(test_cfg=test_cfg)
+        bbox_head.update(train_cfg = train_cfg)
+        bbox_head.update(test_cfg = test_cfg)
         self.bbox_head = build_head(bbox_head)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-        self.init_weights(pretrained=pretrained)
+        self.init_weights(pretrained = pretrained)
 
-    def init_weights(self, pretrained=None):
+    def init_weights(self, pretrained = None):
         """Initialize the weights in detector.
 
         Args:
@@ -40,7 +40,7 @@ class SingleStageDetector(BaseDetector):
                 Defaults to None.
         """
         super(SingleStageDetector, self).init_weights(pretrained)
-        self.backbone.init_weights(pretrained=pretrained)
+        self.backbone.init_weights(pretrained = pretrained)
         if self.with_neck:
             if isinstance(self.neck, nn.Sequential):
                 for m in self.neck:
@@ -70,7 +70,8 @@ class SingleStageDetector(BaseDetector):
                       img_metas,
                       gt_bboxes,
                       gt_labels,
-                      gt_bboxes_ignore=None):
+                      gt_bboxes_ignore = None,
+                      **kwargs):
         """
         Args:
             img (Tensor): Input images of shape (N, C, H, W).
@@ -95,7 +96,7 @@ class SingleStageDetector(BaseDetector):
                                               gt_labels, gt_bboxes_ignore)
         return losses
 
-    def simple_test(self, img, img_metas, rescale=False):
+    def simple_test(self, img, img_metas, rescale = False):
         """Test function without test time augmentation.
 
         Args:
@@ -117,7 +118,7 @@ class SingleStageDetector(BaseDetector):
             img_shape = torch._shape_as_tensor(img)[2:]
             img_metas[0]['img_shape_for_onnx'] = img_shape
         bbox_list = self.bbox_head.get_bboxes(
-            *outs, img_metas, rescale=rescale)
+            *outs, img_metas, rescale = rescale)
         # skip post-processing when exporting to ONNX
         if torch.onnx.is_in_onnx_export():
             return bbox_list
@@ -128,7 +129,7 @@ class SingleStageDetector(BaseDetector):
         ]
         return bbox_results
 
-    def aug_test(self, imgs, img_metas, rescale=False):
+    def aug_test(self, imgs, img_metas, rescale = False):
         """Test function with test time augmentation.
 
         Args:
@@ -151,4 +152,4 @@ class SingleStageDetector(BaseDetector):
             ' does not support test-time augmentation'
 
         feats = self.extract_feats(imgs)
-        return [self.bbox_head.aug_test(feats, img_metas, rescale=rescale)]
+        return [self.bbox_head.aug_test(feats, img_metas, rescale = rescale)]

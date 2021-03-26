@@ -27,29 +27,29 @@ class SparseRoIHead(CascadeRoIHead):
     """
 
     def __init__(self,
-                 num_stages=6,
-                 stage_loss_weights=(1, 1, 1, 1, 1, 1),
-                 proposal_feature_channel=256,
-                 bbox_roi_extractor=dict(
-                     type='SingleRoIExtractor',
-                     roi_layer=dict(
-                         type='RoIAlign', output_size=7, sampling_ratio=2),
-                     out_channels=256,
-                     featmap_strides=[4, 8, 16, 32]),
-                 bbox_head=dict(
-                     type='DIIHead',
-                     num_classes=80,
-                     num_fcs=2,
-                     num_heads=8,
-                     num_cls_fcs=1,
-                     num_reg_fcs=3,
-                     feedforward_channels=2048,
-                     hidden_channels=256,
-                     dropout=0.0,
-                     roi_feat_size=7,
-                     ffn_act_cfg=dict(type='ReLU', inplace=True)),
-                 train_cfg=None,
-                 test_cfg=None):
+                 num_stages = 6,
+                 stage_loss_weights = (1, 1, 1, 1, 1, 1),
+                 proposal_feature_channel = 256,
+                 bbox_roi_extractor = dict(
+                     type = 'SingleRoIExtractor',
+                     roi_layer = dict(
+                         type = 'RoIAlign', output_size = 7, sampling_ratio = 2),
+                     out_channels = 256,
+                     featmap_strides = [4, 8, 16, 32]),
+                 bbox_head = dict(
+                     type = 'DIIHead',
+                     num_classes = 80,
+                     num_fcs = 2,
+                     num_heads = 8,
+                     num_cls_fcs = 1,
+                     num_reg_fcs = 3,
+                     feedforward_channels = 2048,
+                     hidden_channels = 256,
+                     dropout = 0.0,
+                     roi_feat_size = 7,
+                     ffn_act_cfg = dict(type = 'ReLU', inplace = True)),
+                 train_cfg = None,
+                 test_cfg = None):
         assert bbox_roi_extractor is not None
         assert bbox_head is not None
         assert len(stage_loss_weights) == num_stages
@@ -59,10 +59,10 @@ class SparseRoIHead(CascadeRoIHead):
         super(SparseRoIHead, self).__init__(
             num_stages,
             stage_loss_weights,
-            bbox_roi_extractor=bbox_roi_extractor,
-            bbox_head=bbox_head,
-            train_cfg=train_cfg,
-            test_cfg=test_cfg)
+            bbox_roi_extractor = bbox_roi_extractor,
+            bbox_head = bbox_head,
+            train_cfg = train_cfg,
+            test_cfg = test_cfg)
         # train_cfg would be None when run the test.py
         if train_cfg is not None:
             for stage in range(num_stages):
@@ -120,14 +120,14 @@ class SparseRoIHead(CascadeRoIHead):
             [rois.new_zeros(object_feats.size(1)) for _ in range(num_imgs)],
             img_metas)
         bbox_results = dict(
-            cls_score=cls_score,
-            decode_bbox_pred=torch.cat(proposal_list),
-            object_feats=object_feats,
+            cls_score = cls_score,
+            decode_bbox_pred = torch.cat(proposal_list),
+            object_feats = object_feats,
             # detach then use it in label assign
-            detach_cls_score_list=[
+            detach_cls_score_list = [
                 cls_score[i].detach() for i in range(num_imgs)
             ],
-            detach_proposal_list=[item.detach() for item in proposal_list])
+            detach_proposal_list = [item.detach() for item in proposal_list])
 
         return bbox_results
 
@@ -138,9 +138,10 @@ class SparseRoIHead(CascadeRoIHead):
                       img_metas,
                       gt_bboxes,
                       gt_labels,
-                      gt_bboxes_ignore=None,
-                      imgs_whwh=None,
-                      gt_masks=None):
+                      gt_bboxes_ignore = None,
+                      imgs_whwh = None,
+                      gt_masks = None,
+                      **kwargs):
         """Forward function in training stage.
 
         Args:
@@ -208,10 +209,10 @@ class SparseRoIHead(CascadeRoIHead):
                 cls_score.view(-1, cls_score.size(-1)),
                 decode_bbox_pred.view(-1, 4),
                 *bbox_targets,
-                imgs_whwh=imgs_whwh)
+                imgs_whwh = imgs_whwh)
             for key, value in single_stage_loss.items():
                 all_stage_loss[f'stage{stage}_{key}'] = value * \
-                                    self.stage_loss_weights[stage]
+                                                        self.stage_loss_weights[stage]
             object_feats = bbox_results['object_feats']
 
         return all_stage_loss
@@ -222,7 +223,7 @@ class SparseRoIHead(CascadeRoIHead):
                     proposal_features,
                     img_metas,
                     imgs_whwh,
-                    rescale=False):
+                    rescale = False):
         """Test without augmentation.
 
         Args:
@@ -273,7 +274,7 @@ class SparseRoIHead(CascadeRoIHead):
             cls_score_per_img = cls_score[img_id]
             scores_per_img, topk_indices = cls_score_per_img.flatten(
                 0, 1).topk(
-                    self.test_cfg.max_per_img, sorted=False)
+                self.test_cfg.max_per_img, sorted = False)
             labels_per_img = topk_indices % num_classes
             bbox_pred_per_img = proposal_list[img_id][topk_indices //
                                                       num_classes]
@@ -281,7 +282,7 @@ class SparseRoIHead(CascadeRoIHead):
                 scale_factor = img_metas[img_id]['scale_factor']
                 bbox_pred_per_img /= bbox_pred_per_img.new_tensor(scale_factor)
             det_bboxes.append(
-                torch.cat([bbox_pred_per_img, scores_per_img[:, None]], dim=1))
+                torch.cat([bbox_pred_per_img, scores_per_img[:, None]], dim = 1))
             det_labels.append(labels_per_img)
 
         bbox_results = [
@@ -291,7 +292,7 @@ class SparseRoIHead(CascadeRoIHead):
 
         return bbox_results
 
-    def aug_test(self, features, proposal_list, img_metas, rescale=False):
+    def aug_test(self, features, proposal_list, img_metas, rescale = False):
         raise NotImplementedError('Sparse R-CNN does not support `aug_test`')
 
     def forward_dummy(self, x, proposal_boxes, proposal_features, img_metas):

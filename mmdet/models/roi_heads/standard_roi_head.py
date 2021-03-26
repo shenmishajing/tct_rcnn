@@ -17,7 +17,7 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
         if self.train_cfg:
             self.bbox_assigner = build_assigner(self.train_cfg.assigner)
             self.bbox_sampler = build_sampler(
-                self.train_cfg.sampler, context=self)
+                self.train_cfg.sampler, context = self)
 
     def init_bbox_head(self, bbox_roi_extractor, bbox_head):
         """Initialize ``bbox_head``"""
@@ -42,7 +42,7 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
                 Defaults to None.
         """
         if self.with_shared_head:
-            self.shared_head.init_weights(pretrained=pretrained)
+            self.shared_head.init_weights(pretrained = pretrained)
         if self.with_bbox:
             self.bbox_roi_extractor.init_weights()
             self.bbox_head.init_weights()
@@ -64,7 +64,7 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
         if self.with_mask:
             mask_rois = rois[:100]
             mask_results = self._mask_forward(x, mask_rois)
-            outs = outs + (mask_results['mask_pred'], )
+            outs = outs + (mask_results['mask_pred'],)
         return outs
 
     def forward_train(self,
@@ -73,8 +73,9 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
                       proposal_list,
                       gt_bboxes,
                       gt_labels,
-                      gt_bboxes_ignore=None,
-                      gt_masks=None):
+                      gt_bboxes_ignore = None,
+                      gt_masks = None,
+                      **kwargs):
         """
         Args:
             x (list[Tensor]): list of multi-level img features.
@@ -110,7 +111,7 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
                     proposal_list[i],
                     gt_bboxes[i],
                     gt_labels[i],
-                    feats=[lvl_feat[i][None] for lvl_feat in x])
+                    feats = [lvl_feat[i][None] for lvl_feat in x])
                 sampling_results.append(sampling_result)
 
         losses = dict()
@@ -140,7 +141,7 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
         cls_score, bbox_pred = self.bbox_head(bbox_feats)
 
         bbox_results = dict(
-            cls_score=cls_score, bbox_pred=bbox_pred, bbox_feats=bbox_feats)
+            cls_score = cls_score, bbox_pred = bbox_pred, bbox_feats = bbox_feats)
         return bbox_results
 
     def _bbox_forward_train(self, x, sampling_results, gt_bboxes, gt_labels,
@@ -155,7 +156,7 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
                                         bbox_results['bbox_pred'], rois,
                                         *bbox_targets)
 
-        bbox_results.update(loss_bbox=loss_bbox)
+        bbox_results.update(loss_bbox = loss_bbox)
         return bbox_results
 
     def _mask_forward_train(self, x, sampling_results, bbox_feats, gt_masks,
@@ -172,17 +173,17 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
                 pos_inds.append(
                     torch.ones(
                         res.pos_bboxes.shape[0],
-                        device=device,
-                        dtype=torch.uint8))
+                        device = device,
+                        dtype = torch.uint8))
                 pos_inds.append(
                     torch.zeros(
                         res.neg_bboxes.shape[0],
-                        device=device,
-                        dtype=torch.uint8))
+                        device = device,
+                        dtype = torch.uint8))
             pos_inds = torch.cat(pos_inds)
 
             mask_results = self._mask_forward(
-                x, pos_inds=pos_inds, bbox_feats=bbox_feats)
+                x, pos_inds = pos_inds, bbox_feats = bbox_feats)
 
         mask_targets = self.mask_head.get_targets(sampling_results, gt_masks,
                                                   self.train_cfg)
@@ -190,10 +191,10 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
         loss_mask = self.mask_head.loss(mask_results['mask_pred'],
                                         mask_targets, pos_labels)
 
-        mask_results.update(loss_mask=loss_mask, mask_targets=mask_targets)
+        mask_results.update(loss_mask = loss_mask, mask_targets = mask_targets)
         return mask_results
 
-    def _mask_forward(self, x, rois=None, pos_inds=None, bbox_feats=None):
+    def _mask_forward(self, x, rois = None, pos_inds = None, bbox_feats = None):
         """Mask head forward function used in both training and testing."""
         assert ((rois is not None) ^
                 (pos_inds is not None and bbox_feats is not None))
@@ -207,20 +208,20 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
             mask_feats = bbox_feats[pos_inds]
 
         mask_pred = self.mask_head(mask_feats)
-        mask_results = dict(mask_pred=mask_pred, mask_feats=mask_feats)
+        mask_results = dict(mask_pred = mask_pred, mask_feats = mask_feats)
         return mask_results
 
     async def async_simple_test(self,
                                 x,
                                 proposal_list,
                                 img_metas,
-                                proposals=None,
-                                rescale=False):
+                                proposals = None,
+                                rescale = False):
         """Async test without augmentation."""
         assert self.with_bbox, 'Bbox head must be implemented.'
 
         det_bboxes, det_labels = await self.async_test_bboxes(
-            x, img_metas, proposal_list, self.test_cfg, rescale=rescale)
+            x, img_metas, proposal_list, self.test_cfg, rescale = rescale)
         bbox_results = bbox2result(det_bboxes, det_labels,
                                    self.bbox_head.num_classes)
         if not self.with_mask:
@@ -231,25 +232,25 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
                 img_metas,
                 det_bboxes,
                 det_labels,
-                rescale=rescale,
-                mask_test_cfg=self.test_cfg.get('mask'))
+                rescale = rescale,
+                mask_test_cfg = self.test_cfg.get('mask'))
             return bbox_results, segm_results
 
     def simple_test(self,
                     x,
                     proposal_list,
                     img_metas,
-                    proposals=None,
-                    rescale=False):
+                    proposals = None,
+                    rescale = False):
         """Test without augmentation."""
         assert self.with_bbox, 'Bbox head must be implemented.'
 
         det_bboxes, det_labels = self.simple_test_bboxes(
-            x, img_metas, proposal_list, self.test_cfg, rescale=rescale)
+            x, img_metas, proposal_list, self.test_cfg, rescale = rescale)
         if torch.onnx.is_in_onnx_export():
             if self.with_mask:
                 segm_results = self.simple_test_mask(
-                    x, img_metas, det_bboxes, det_labels, rescale=rescale)
+                    x, img_metas, det_bboxes, det_labels, rescale = rescale)
                 return det_bboxes, det_labels, segm_results
             else:
                 return det_bboxes, det_labels
@@ -264,10 +265,10 @@ class StandardRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
             return bbox_results
         else:
             segm_results = self.simple_test_mask(
-                x, img_metas, det_bboxes, det_labels, rescale=rescale)
+                x, img_metas, det_bboxes, det_labels, rescale = rescale)
             return list(zip(bbox_results, segm_results))
 
-    def aug_test(self, x, proposal_list, img_metas, rescale=False):
+    def aug_test(self, x, proposal_list, img_metas, rescale = False):
         """Test with augmentations.
 
         If rescale is False, then returned bboxes and masks will fit the scale
