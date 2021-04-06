@@ -12,21 +12,21 @@ class TCTRoIHead(CascadeRoIHead):
     """
 
     def __init__(self, num_classes, stage_loss_weights, train_cfg, *args, **kwargs):
-        self.stage = ['single', 'multi', 'tct']
-        if stage_loss_weights is None or stage_loss_weights == {} or self.stage[0] not in self.stage:
+        self.stages = ['single', 'multi', 'tct']
+        if stage_loss_weights is None or stage_loss_weights == {} or self.stages[0] not in self.stages:
             stage_loss_weights = {}
-            for stage in self.stage:
+            for stage in self.stages:
                 stage_loss_weights[stage] = 1.0
         else:
-            for stage in self.stage:
+            for stage in self.stages:
                 assert stage in stage_loss_weights, f'can not find stage {stage} in stage_loss_weights'
 
-        if not isinstance(train_cfg, dict) or self.stage[0] not in train_cfg:
-            train_cfg = {stage: train_cfg for stage in self.stage}
+        if not isinstance(train_cfg, dict) or self.stages[0] not in train_cfg:
+            train_cfg = {stage: train_cfg for stage in self.stages}
         else:
-            for stage in self.stage:
+            for stage in self.stages:
                 assert stage in train_cfg, f'can not find stage {stage} in train_cfg'
-        super(TCTRoIHead, self).__init__(num_stages = len(self.stage), stage_loss_weights = stage_loss_weights, train_cfg = train_cfg,
+        super(TCTRoIHead, self).__init__(num_stages = len(self.stages), stage_loss_weights = stage_loss_weights, train_cfg = train_cfg,
                                          *args, **kwargs)
         self.num_classes = num_classes
 
@@ -39,17 +39,17 @@ class TCTRoIHead(CascadeRoIHead):
         """
         self.bbox_roi_extractor = nn.ModuleDict()
         self.bbox_head = nn.ModuleDict()
-        if not isinstance(bbox_roi_extractor, dict) or self.stage[0] not in bbox_roi_extractor:
-            bbox_roi_extractor = {stage: bbox_roi_extractor for stage in self.stage}
+        if not isinstance(bbox_roi_extractor, dict) or self.stages[0] not in bbox_roi_extractor:
+            bbox_roi_extractor = {stage: bbox_roi_extractor for stage in self.stages}
         else:
-            for stage in self.stage:
+            for stage in self.stages:
                 assert stage in bbox_roi_extractor, f'can not find stage {stage} in bbox_roi_extractor'
-        if not isinstance(bbox_head, dict) or self.stage[0] not in bbox_head:
-            bbox_head = {stage: bbox_head for stage in self.stage}
+        if not isinstance(bbox_head, dict) or self.stages[0] not in bbox_head:
+            bbox_head = {stage: bbox_head for stage in self.stages}
         else:
-            for stage in self.stage:
+            for stage in self.stages:
                 assert stage in bbox_head, f'can not find stage {stage} in bbox_head'
-        for stage in self.stage:
+        for stage in self.stages:
             self.bbox_roi_extractor[stage] = build_roi_extractor(bbox_roi_extractor[stage])
             self.bbox_head[stage] = build_head(bbox_head[stage])
 
@@ -58,7 +58,7 @@ class TCTRoIHead(CascadeRoIHead):
         self.bbox_assigner = dict()
         self.bbox_sampler = dict()
         if self.train_cfg is not None:
-            for stage in self.stage:
+            for stage in self.stages:
                 self.bbox_assigner[stage] = build_assigner(self.train_cfg[stage].assigner)
                 self.bbox_sampler[stage] = build_sampler(self.train_cfg[stage].sampler)
 
@@ -71,7 +71,7 @@ class TCTRoIHead(CascadeRoIHead):
         """
         if self.with_shared_head:
             self.shared_head.init_weights(pretrained = pretrained)
-        for stage in self.stage:
+        for stage in self.stages:
             if self.with_bbox:
                 self.bbox_roi_extractor[stage].init_weights()
                 self.bbox_head[stage].init_weights()
@@ -82,7 +82,7 @@ class TCTRoIHead(CascadeRoIHead):
         outs = ()
         rois = bbox2roi([proposals])
         if self.with_bbox:
-            for stage in self.stage:
+            for stage in self.stages:
                 bbox_results = self._bbox_forward(stage, x, rois)
                 outs = outs + (bbox_results['cls_score'],
                                bbox_results['bbox_pred'])
@@ -105,7 +105,7 @@ class TCTRoIHead(CascadeRoIHead):
                 'filename', 'ori_shape', 'pad_shape', and 'img_norm_cfg'.
                 For details on the values of these keys see
                 `mmdet/datasets/pipelines/formatting.py:Collect`.
-            proposal_list (list[Tensors]): list of region proposals.
+            proposal_list (dict(list[Tensors])): list of region proposals.
             gt_bboxes (list[Tensor]): Ground truth bboxes for each image with
                 shape (num_gts, 4) in [tl_x, tl_y, br_x, br_y] format.
             gt_labels (list[Tensor]): class indices corresponding to each box
@@ -119,7 +119,7 @@ class TCTRoIHead(CascadeRoIHead):
         """
         losses = dict()
         final_proposal_list = []
-        for stage in self.stage:
+        for stage in self.stages:
             lw = self.stage_loss_weights[stage]
 
             # assign gts and sample proposals
@@ -131,13 +131,13 @@ class TCTRoIHead(CascadeRoIHead):
                 if gt_bboxes_ignore is None:
                     gt_bboxes_ignore = [None for _ in range(num_imgs)]
 
-                if stage == self.stage[-1]:
+                if stage == self.stages[-1]:
                     cur_proposal_list = [torch.cat([proposal[j] for proposal in final_proposal_list]) for j in range(num_imgs)]
                     cur_gt_bboxes = gt_bboxes
                     cur_gt_labels = gt_labels
                     cur_gt_bboxes_ignore = gt_bboxes_ignore
                 else:
-                    cur_proposal_list = proposal_list
+                    cur_proposal_list = proposal_list[stage]
                     cur_gt_bboxes = kwargs[stage]['gt_bboxes']
                     cur_gt_labels = kwargs[stage]['gt_labels']
                     cur_gt_bboxes_ignore = kwargs[stage].get('gt_bboxes_ignore', None)
@@ -167,7 +167,7 @@ class TCTRoIHead(CascadeRoIHead):
                         value * lw if 'loss' in name else value)
 
             # refine bboxes
-            if stage != self.stage[-1]:
+            if stage != self.stages[-1]:
                 pos_is_gts = [res.pos_is_gt for res in sampling_results]
                 # bbox_targets is a tuple
                 roi_labels = bbox_results['bbox_targets'][0]
@@ -185,7 +185,7 @@ class TCTRoIHead(CascadeRoIHead):
     def simple_test(self, x, proposal_list, img_metas, rescale = False):
         """Test without augmentation."""
         assert self.with_bbox, 'Bbox head must be implemented.'
-        num_imgs = len(proposal_list)
+        num_imgs = len(proposal_list[self.stages[0]])
         img_shapes = tuple(meta['img_shape'] for meta in img_metas)
         ori_shapes = tuple(meta['ori_shape'] for meta in img_metas)
         scale_factors = tuple(meta['scale_factor'] for meta in img_metas)
@@ -196,21 +196,20 @@ class TCTRoIHead(CascadeRoIHead):
         ms_scores = []
         rcnn_test_cfg = self.test_cfg
 
-        final_proposal_list = []
-        rois = bbox2roi(proposal_list)
-        for stage in self.stage:
-            if stage == self.stage[-1]:
-                proposal_list = [torch.cat([proposal, proposal]) for proposal in proposal_list]
-                cur_rois = torch.cat(final_proposal_list)
+        proposal_list[self.stages[-1]] = []
+        for stage in self.stages:
+            if stage == self.stages[-1]:
+                cur_rois = torch.cat(proposal_list[stage])
+                proposal_list[stage] = [torch.cat([proposal, proposal]) for proposal in proposal_list[self.stages[0]]]
             else:
-                cur_rois = rois
+                cur_rois = bbox2roi(proposal_list[stage])
             bbox_results = self._bbox_forward(stage, x, cur_rois)
 
             # split batch bbox prediction back to each image
             cls_score = bbox_results['cls_score']
             bbox_pred = bbox_results['bbox_pred']
             num_proposals_per_img = tuple(
-                len(proposals) for proposals in proposal_list)
+                len(proposals) for proposals in proposal_list[stage])
             cur_rois = cur_rois.split(num_proposals_per_img, 0)
             cls_score = cls_score.split(num_proposals_per_img, 0)
             if isinstance(bbox_pred, torch.Tensor):
@@ -220,9 +219,9 @@ class TCTRoIHead(CascadeRoIHead):
                     bbox_pred, num_proposals_per_img)
             ms_scores.append(cls_score)
 
-            if stage != self.stage[-1]:
+            if stage != self.stages[-1]:
                 bbox_label = [s[:, :-1].argmax(dim = 1) for s in cls_score]
-                final_proposal_list.append(torch.cat([
+                proposal_list[self.stages[-1]].append(torch.cat([
                     self.bbox_head[stage].regress_by_class(cur_rois[j], bbox_label[j], bbox_pred[j], img_metas[j]) for j in range(num_imgs)
                 ]))
 
@@ -230,7 +229,7 @@ class TCTRoIHead(CascadeRoIHead):
         det_bboxes = []
         det_labels = []
         for i in range(num_imgs):
-            det_bbox, det_label = self.bbox_head[self.stage[-1]].get_bboxes(
+            det_bbox, det_label = self.bbox_head[self.stages[-1]].get_bboxes(
                 cur_rois[i],
                 cls_score[i],
                 bbox_pred[i],
@@ -245,7 +244,7 @@ class TCTRoIHead(CascadeRoIHead):
             return det_bboxes, det_labels
         bbox_results = [
             bbox2result(det_bboxes[i], det_labels[i],
-                        self.bbox_head[self.stage[-1]].num_classes)
+                        self.bbox_head[self.stages[-1]].num_classes)
             for i in range(num_imgs)
         ]
         ms_bbox_result['ensemble'] = bbox_results
