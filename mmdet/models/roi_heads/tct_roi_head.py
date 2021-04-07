@@ -200,7 +200,11 @@ class TCTRoIHead(CascadeRoIHead):
         for stage in self.stages:
             if stage == self.stages[-1]:
                 cur_rois = torch.cat(proposal_list[stage])
-                proposal_list[stage] = [torch.cat([proposal, proposal]) for proposal in proposal_list[self.stages[0]]]
+                proposal_list[stage] = []
+                for i in range(len(img_metas)):
+                    cur_inds = cur_rois[:, 0] == i
+                    proposal_list[stage].append(cur_rois[cur_inds])
+                cur_rois = torch.cat(proposal_list[stage])
             else:
                 cur_rois = bbox2roi(proposal_list[stage])
             bbox_results = self._bbox_forward(stage, x, cur_rois)
