@@ -105,7 +105,7 @@ class TCTRoIHead(CascadeRoIHead):
                 'filename', 'ori_shape', 'pad_shape', and 'img_norm_cfg'.
                 For details on the values of these keys see
                 `mmdet/datasets/pipelines/formatting.py:Collect`.
-            proposal_list (dict(list[Tensors])): list of region proposals.
+            proposal_list (list[Tensors]): list of region proposals.
             gt_bboxes (list[Tensor]): Ground truth bboxes for each image with
                 shape (num_gts, 4) in [tl_x, tl_y, br_x, br_y] format.
             gt_labels (list[Tensor]): class indices corresponding to each box
@@ -137,7 +137,7 @@ class TCTRoIHead(CascadeRoIHead):
                     cur_gt_labels = gt_labels
                     cur_gt_bboxes_ignore = gt_bboxes_ignore
                 else:
-                    cur_proposal_list = proposal_list[stage]
+                    cur_proposal_list = proposal_list
                     cur_gt_bboxes = kwargs[stage]['gt_bboxes']
                     cur_gt_labels = kwargs[stage]['gt_labels']
                     cur_gt_bboxes_ignore = kwargs[stage].get('gt_bboxes_ignore', None)
@@ -185,7 +185,7 @@ class TCTRoIHead(CascadeRoIHead):
     def simple_test(self, x, proposal_list, img_metas, rescale = False):
         """Test without augmentation."""
         assert self.with_bbox, 'Bbox head must be implemented.'
-        num_imgs = len(proposal_list[self.stages[0]])
+        num_imgs = len(proposal_list)
         img_shapes = tuple(meta['img_shape'] for meta in img_metas)
         ori_shapes = tuple(meta['ori_shape'] for meta in img_metas)
         scale_factors = tuple(meta['scale_factor'] for meta in img_metas)
@@ -196,24 +196,24 @@ class TCTRoIHead(CascadeRoIHead):
         ms_scores = []
         rcnn_test_cfg = self.test_cfg
 
-        proposal_list[self.stages[-1]] = []
+        final_proposal_list = []
         for stage in self.stages:
             if stage == self.stages[-1]:
-                cur_rois = torch.cat(proposal_list[stage])
-                proposal_list[stage] = []
+                cur_rois = torch.cat(final_proposal_list)
+                proposal_list = []
                 for i in range(len(img_metas)):
                     cur_inds = cur_rois[:, 0] == i
-                    proposal_list[stage].append(cur_rois[cur_inds])
-                cur_rois = torch.cat(proposal_list[stage])
+                    proposal_list.append(cur_rois[cur_inds])
+                cur_rois = torch.cat(proposal_list)
             else:
-                cur_rois = bbox2roi(proposal_list[stage])
+                cur_rois = bbox2roi(proposal_list)
             bbox_results = self._bbox_forward(stage, x, cur_rois)
 
             # split batch bbox prediction back to each image
             cls_score = bbox_results['cls_score']
             bbox_pred = bbox_results['bbox_pred']
             num_proposals_per_img = tuple(
-                len(proposals) for proposals in proposal_list[stage])
+                len(proposals) for proposals in proposal_list)
             cur_rois = cur_rois.split(num_proposals_per_img, 0)
             cls_score = cls_score.split(num_proposals_per_img, 0)
             if isinstance(bbox_pred, torch.Tensor):
@@ -225,7 +225,7 @@ class TCTRoIHead(CascadeRoIHead):
 
             if stage != self.stages[-1]:
                 bbox_label = [s[:, :-1].argmax(dim = 1) for s in cls_score]
-                proposal_list[self.stages[-1]].append(torch.cat([
+                final_proposal_list.append(torch.cat([
                     self.bbox_head[stage].regress_by_class(cur_rois[j], bbox_label[j], bbox_pred[j], img_metas[j]) for j in range(num_imgs)
                 ]))
 
