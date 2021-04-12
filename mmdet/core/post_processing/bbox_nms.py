@@ -8,9 +8,9 @@ def multiclass_nms(multi_bboxes,
                    multi_scores,
                    score_thr,
                    nms_cfg,
-                   max_num=-1,
-                   score_factors=None,
-                   return_inds=False):
+                   max_num = -1,
+                   score_factors = None,
+                   return_inds = False):
     """NMS for multi-class bboxes.
 
     Args:
@@ -41,7 +41,7 @@ def multiclass_nms(multi_bboxes,
 
     scores = multi_scores[:, :-1]
 
-    labels = torch.arange(num_classes, dtype=torch.long)
+    labels = torch.arange(num_classes, dtype = torch.long, device = scores.device)
     labels = labels.view(1, -1).expand_as(scores)
 
     bboxes = bboxes.reshape(-1, 4)
@@ -63,14 +63,14 @@ def multiclass_nms(multi_bboxes,
 
     if not torch.onnx.is_in_onnx_export():
         # NonZero not supported  in TensorRT
-        inds = valid_mask.nonzero(as_tuple=False).squeeze(1)
+        inds = valid_mask.nonzero(as_tuple = False).squeeze(1)
         bboxes, scores, labels = bboxes[inds], scores[inds], labels[inds]
     else:
         # TensorRT NMS plugin has invalid output filled with -1
         # add dummy data to make detection output correct.
-        bboxes = torch.cat([bboxes, bboxes.new_zeros(1, 4)], dim=0)
-        scores = torch.cat([scores, scores.new_zeros(1)], dim=0)
-        labels = torch.cat([labels, labels.new_zeros(1)], dim=0)
+        bboxes = torch.cat([bboxes, bboxes.new_zeros(1, 4)], dim = 0)
+        scores = torch.cat([scores, scores.new_zeros(1)], dim = 0)
+        labels = torch.cat([labels, labels.new_zeros(1)], dim = 0)
 
     if bboxes.numel() == 0:
         if torch.onnx.is_in_onnx_export():
@@ -99,7 +99,7 @@ def fast_nms(multi_bboxes,
              score_thr,
              iou_thr,
              top_k,
-             max_num=-1):
+             max_num = -1):
     """Fast NMS in `YOLACT <https://arxiv.org/abs/1904.02689>`_.
 
     Fast NMS allows already-removed detections to suppress other detections so
@@ -127,7 +127,7 @@ def fast_nms(multi_bboxes,
     """
 
     scores = multi_scores[:, :-1].t()  # [#class, n]
-    scores, idx = scores.sort(1, descending=True)
+    scores, idx = scores.sort(1, descending = True)
 
     idx = idx[:, :top_k].contiguous()
     scores = scores[:, :top_k]  # [#class, topk]
@@ -136,8 +136,8 @@ def fast_nms(multi_bboxes,
     coeffs = multi_coeffs[idx.view(-1), :].view(num_classes, num_dets, -1)
 
     iou = bbox_overlaps(boxes, boxes)  # [#class, topk, topk]
-    iou.triu_(diagonal=1)
-    iou_max, _ = iou.max(dim=1)
+    iou.triu_(diagonal = 1)
+    iou_max, _ = iou.max(dim = 1)
 
     # Now just filter out the ones higher than the threshold
     keep = iou_max <= iou_thr
@@ -147,7 +147,7 @@ def fast_nms(multi_bboxes,
 
     # Assign each kept detection to its corresponding class
     classes = torch.arange(
-        num_classes, device=boxes.device)[:, None].expand_as(keep)
+        num_classes, device = boxes.device)[:, None].expand_as(keep)
     classes = classes[keep]
 
     boxes = boxes[keep]
@@ -155,7 +155,7 @@ def fast_nms(multi_bboxes,
     scores = scores[keep]
 
     # Only keep the top max_num highest scores across all classes
-    scores, idx = scores.sort(0, descending=True)
+    scores, idx = scores.sort(0, descending = True)
     if max_num > 0:
         idx = idx[:max_num]
         scores = scores[:max_num]
@@ -164,5 +164,5 @@ def fast_nms(multi_bboxes,
     boxes = boxes[idx]
     coeffs = coeffs[idx]
 
-    cls_dets = torch.cat([boxes, scores[:, None]], dim=1)
+    cls_dets = torch.cat([boxes, scores[:, None]], dim = 1)
     return cls_dets, classes, coeffs
