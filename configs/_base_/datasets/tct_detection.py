@@ -49,4 +49,4 @@ data = dict(
         img_prefix = data_root + 'val2017/',
         part = part,
         pipeline = test_pipeline))
-evaluation = dict(interval = 1, metric = 'bbox')
+evaluation = dict(interval = 1, metric = 'bbox', classwise = True)
