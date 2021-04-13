@@ -498,6 +498,7 @@ class TCTDataset(CocoDataset):
                             ap = float('nan')
                         results_per_category.append(
                             (f'{nm["name"]}', f'{float(ap):0.3f}'))
+                        eval_results[f'{metric}_mAP_{nm["name"]}'] = ap
 
                     num_columns = min(6, len(results_per_category) * 2)
                     results_flatten = list(
