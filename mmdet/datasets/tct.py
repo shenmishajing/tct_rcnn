@@ -29,7 +29,11 @@ except AssertionError:
 
 @DATASETS.register_module()
 class TCTDataset(CocoDataset):
-    CLASSES = get_classes('tct')
+    CLASSES = None
+
+    @classmethod
+    def set_class(cls, classes):
+        cls.CLASSES = classes
 
     def __init__(self,
                  ann_file,
@@ -58,6 +62,7 @@ class TCTDataset(CocoDataset):
             'all': ['NORMAL', 'ASCH', 'ASCUS', 'HSIL', 'LSIL', 'SQCA', 'ASCH-multi', 'ASCUS-multi', 'HSIL-multi', 'LSIL-multi',
                     'SQCA-multi'],
         }
+        self.set_class(self.classes[self.part])
 
         # join paths if data_root is specified
         if self.data_root is not None:
