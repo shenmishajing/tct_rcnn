@@ -5,14 +5,13 @@ from collections import OrderedDict
 
 import numpy as np
 from mmcv.utils import print_log
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
 from terminaltables import AsciiTable
 
 from mmdet.core import eval_recalls
+from .api_wrappers import COCO, COCOeval
 from .builder import DATASETS
-from .coco import CocoDataset
 from .pipelines import Compose
+from .coco import CocoDataset
 
 
 @DATASETS.register_module()
