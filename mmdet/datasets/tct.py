@@ -29,12 +29,16 @@ except AssertionError:
 
 @DATASETS.register_module()
 class TCTDataset(CocoDataset):
-    CLASSES = get_classes('tct')
+    CLASSES = None
+
+    @classmethod
+    def set_class(cls, classes):
+        cls.CLASSES = classes
 
     def __init__(self,
                  ann_file,
                  pipeline,
-                 classes = None,
+                 part = 'tct',
                  data_root = None,
                  img_prefix = '',
                  seg_prefix = None,
@@ -42,6 +46,7 @@ class TCTDataset(CocoDataset):
                  test_mode = False,
                  filter_empty_gt = True):
         self.parts = OrderedDict(tct = '', single = '_single', multi = '_multi', normal = '_normal', all = '_all')
+        self.part = part
         self.ann_file = {part: ann_file + self.parts[part] + '.json' for part in self.parts}
         self.data_root = data_root
         self.img_prefix = img_prefix
@@ -57,6 +62,7 @@ class TCTDataset(CocoDataset):
             'all': ['NORMAL', 'ASCH', 'ASCUS', 'HSIL', 'LSIL', 'SQCA', 'ASCH-multi', 'ASCUS-multi', 'HSIL-multi', 'LSIL-multi',
                     'SQCA-multi'],
         }
+        self.set_class(self.classes[self.part])
 
         # join paths if data_root is specified
         if self.data_root is not None:
@@ -108,10 +114,10 @@ class TCTDataset(CocoDataset):
         self.coco = {part: COCO(ann_file[part]) for part in self.parts}
         self.cat_ids = {part: self.coco[part].get_cat_ids(cat_names = self.classes[part]) for part in self.parts}
         self.cat2label = {part: {cat_id: i for i, cat_id in enumerate(self.cat_ids[part])} for part in self.parts}
-        self.img_ids = self.coco['tct'].get_img_ids()
+        self.img_ids = self.coco[self.part].get_img_ids()
         data_infos = []
         for i in self.img_ids:
-            info = self.coco['tct'].load_imgs([i])[0]
+            info = self.coco[self.part].load_imgs([i])[0]
             if 'filename' not in info:
                 info['filename'] = info['file_name']
             data_infos.append(info)
@@ -143,25 +149,17 @@ class TCTDataset(CocoDataset):
         """
 
         img_id = self.data_infos[idx]['id']
-        ann_ids = self.coco['tct'].get_ann_ids(img_ids = [img_id])
-        ann_info = self.coco['tct'].load_anns(ann_ids)
+        ann_ids = self.coco[self.part].get_ann_ids(img_ids = [img_id])
+        ann_info = self.coco[self.part].load_anns(ann_ids)
         return [ann['category_id'] for ann in ann_info]
 
     def _filter_imgs(self, min_size = 32):
         """Filter images too small or without ground truths."""
         valid_inds = []
-        # obtain images that contain annotation
-        ids_with_ann = set()
-        for part in self.parts:
-            ids_with_ann |= set(_['image_id'] for _ in self.coco[part].anns.values())
         # obtain images that contain annotations of the required categories
         ids_in_cat = set()
-        for part in self.parts:
-            for i, class_id in enumerate(self.cat_ids[part]):
-                ids_in_cat |= set(self.coco[part].cat_img_map[class_id])
-        # merge the image id sets of the two conditions and use the merged set
-        # to filter out images if self.filter_empty_gt=True
-        ids_in_cat &= ids_with_ann
+        for i, class_id in enumerate(self.cat_ids[self.part]):
+            ids_in_cat |= set(self.coco[self.part].cat_img_map[class_id])
 
         valid_img_ids = []
         for i, img_info in enumerate(self.data_infos):
@@ -246,16 +244,16 @@ class TCTDataset(CocoDataset):
 
         img_info = self.data_infos[idx]
         ann_info = self.get_ann_info(idx)
+        res = {}
         for part in self.parts:
             results = dict(img_info = img_info, ann_info = ann_info[part])
             if self.proposals is not None:
                 results['proposals'] = self.proposals[idx]
             self.pre_pipeline(results)
             results = self.pipeline(results)
-            if part == 'tct':
-                res = results
-            else:
-                res[part] = results
+            if part == self.part:
+                res.update(results)
+            res[part] = results
         return res
 
     def prepare_test_img(self, idx):
@@ -289,7 +287,7 @@ class TCTDataset(CocoDataset):
                     data['image_id'] = img_id
                     data['bbox'] = self.xyxy2xywh(bboxes[i])
                     data['score'] = float(bboxes[i][4])
-                    data['category_id'] = self.cat_ids['tct'][label]
+                    data['category_id'] = self.cat_ids[self.part][label]
                     json_results.append(data)
         return json_results
 
@@ -308,7 +306,7 @@ class TCTDataset(CocoDataset):
                     data['image_id'] = img_id
                     data['bbox'] = self.xyxy2xywh(bboxes[i])
                     data['score'] = float(bboxes[i][4])
-                    data['category_id'] = self.cat_ids['tct'][label]
+                    data['category_id'] = self.cat_ids[self.part][label]
                     bbox_json_results.append(data)
 
                 # segm results
@@ -324,7 +322,7 @@ class TCTDataset(CocoDataset):
                     data['image_id'] = img_id
                     data['bbox'] = self.xyxy2xywh(bboxes[i])
                     data['score'] = float(mask_score[i])
-                    data['category_id'] = self.cat_ids['tct'][label]
+                    data['category_id'] = self.cat_ids[self.part][label]
                     if isinstance(segms[i]['counts'], bytes):
                         segms[i]['counts'] = segms[i]['counts'].decode()
                     data['segmentation'] = segms[i]
@@ -334,8 +332,8 @@ class TCTDataset(CocoDataset):
     def fast_eval_recall(self, results, proposal_nums, iou_thrs, logger = None):
         gt_bboxes = []
         for i in range(len(self.img_ids)):
-            ann_ids = self.coco['tct'].get_ann_ids(img_ids = self.img_ids[i])
-            ann_info = self.coco['tct'].load_anns(ann_ids)
+            ann_ids = self.coco[self.part].get_ann_ids(img_ids = self.img_ids[i])
+            ann_info = self.coco[self.part].load_anns(ann_ids)
             if len(ann_info) == 0:
                 gt_bboxes.append(np.zeros((0, 4)))
                 continue
@@ -410,7 +408,7 @@ class TCTDataset(CocoDataset):
         result_files, tmp_dir = self.format_results(results, jsonfile_prefix)
 
         eval_results = OrderedDict()
-        cocoGt = self.coco['tct']
+        cocoGt = self.coco[self.part]
         for metric in metrics:
             msg = f'Evaluating {metric}...'
             if logger is None:
@@ -441,7 +439,7 @@ class TCTDataset(CocoDataset):
 
             iou_type = 'bbox' if metric == 'proposal' else metric
             cocoEval = COCOeval(cocoGt, cocoDt, iou_type)
-            cocoEval.params.catIds = self.cat_ids['tct']
+            cocoEval.params.catIds = self.cat_ids[self.part]
             cocoEval.params.imgIds = self.img_ids
             cocoEval.params.maxDets = list(proposal_nums)
             cocoEval.params.iouThrs = iou_thrs
@@ -490,13 +488,13 @@ class TCTDataset(CocoDataset):
                     # from https://github.com/facebookresearch/detectron2/
                     precisions = cocoEval.eval['precision']
                     # precision: (iou, recall, cls, area range, max dets)
-                    assert len(self.cat_ids['tct']) == precisions.shape[2]
+                    assert len(self.cat_ids[self.part]) == precisions.shape[2]
 
                     results_per_category = []
-                    for idx, catId in enumerate(self.cat_ids['tct']):
+                    for idx, catId in enumerate(self.cat_ids[self.part]):
                         # area range index 0: all area ranges
                         # max dets index -1: typically 100 per image
-                        nm = self.coco['tct'].loadCats(catId)[0]
+                        nm = self.coco[self.part].loadCats(catId)[0]
                         precision = precisions[:, :, idx, 0, -1]
                         precision = precision[precision > -1]
                         if precision.size:
@@ -505,6 +503,7 @@ class TCTDataset(CocoDataset):
                             ap = float('nan')
                         results_per_category.append(
                             (f'{nm["name"]}', f'{float(ap):0.3f}'))
+                        eval_results[f'{metric}_mAP_{nm["name"]}'] = ap
 
                     num_columns = min(6, len(results_per_category) * 2)
                     results_flatten = list(

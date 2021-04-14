@@ -4,6 +4,8 @@ _base_ = [
     '../_base_/schedules/schedule_2x.py', '../_base_/default_runtime.py'
 ]
 
+custom_hooks = []
+
 log_config = dict(
     hooks = [
         dict(type = 'TextLoggerHook'),
