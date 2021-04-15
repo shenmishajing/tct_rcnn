@@ -96,6 +96,7 @@ class TCTRoIHead(CascadeRoIHead):
                       gt_labels,
                       gt_bboxes_ignore = None,
                       gt_masks = None,
+                      ref = None,
                       **kwargs):
         """
         Args:
