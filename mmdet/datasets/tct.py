@@ -3,6 +3,7 @@ import logging
 import os.path as osp
 from collections import OrderedDict
 
+import random
 import numpy as np
 from mmcv.utils import print_log
 from terminaltables import AsciiTable
@@ -25,7 +26,9 @@ class TCTDataset(CocoDataset):
     def __init__(self,
                  ann_file,
                  pipeline,
+                 ref_pipeline,
                  part = 'tct',
+                 num_references = 10,
                  data_root = None,
                  img_prefix = '',
                  seg_prefix = None,
@@ -34,6 +37,7 @@ class TCTDataset(CocoDataset):
                  filter_empty_gt = True):
         self.parts = OrderedDict(tct = '', single = '_single', multi = '_multi', normal = '_normal', all = '_all')
         self.part = part
+        self.num_references = num_references
         self.ann_file = {part: ann_file + self.parts[part] + '.json' for part in self.parts}
         self.data_root = data_root
         self.img_prefix = img_prefix
@@ -83,6 +87,7 @@ class TCTDataset(CocoDataset):
 
         # processing pipeline
         self.pipeline = Compose(pipeline)
+        self.ref_pipeline = Compose(ref_pipeline)
 
     # def __len__(self):
     #     """Total number of samples of data."""
@@ -241,6 +246,19 @@ class TCTDataset(CocoDataset):
             if part == self.part:
                 res.update(results)
             res[part] = results
+        res['ref'] = []
+        ref_ids = random.sample(list(self.coco['normal'].anns.keys()), self.num_references)
+        for ref_id in ref_ids:
+            ref_ann = self.coco['normal'].load_anns(ref_id)[0]
+            ref_img_id = ref_ann['image_id']
+            ref_img = self.coco['normal'].load_imgs(ref_img_id)[0]
+            ref_ann = self._parse_ann_info(ref_img, [ref_ann], 'normal')
+            results = dict(img_info = ref_img, ann_info = ref_ann)
+            if self.proposals is not None:
+                results['proposals'] = self.proposals[idx]
+            self.pre_pipeline(results)
+            results = self.ref_pipeline(results)
+            res['ref'].append(results)
         return res
 
     def prepare_test_img(self, idx):
