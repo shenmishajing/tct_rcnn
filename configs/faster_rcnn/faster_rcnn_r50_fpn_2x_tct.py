@@ -5,7 +5,7 @@ _base_ = [
 ]
 runner = dict(type = 'EpochBasedRunner', max_epochs = 36)
 model = dict(rpn_head = dict(loss_bbox = dict(type = 'L1Loss', loss_weight = 1.0)),
-             roi_head = dict(bbox_head = dict(num_classes = 1)))
+             roi_head = dict(bbox_head = dict(num_classes = 5)))
 
 log_config = dict(
     hooks = [
