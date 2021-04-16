@@ -4,12 +4,14 @@ _base_ = [
     '../_base_/schedules/schedule_2x.py', '../_base_/default_runtime.py'
 ]
 
+model = dict(rpn_head = dict(loss_bbox = dict(type = 'L1Loss', loss_weight = 20.0)))
 custom_hooks = []
 
 log_config = dict(
     hooks = [
         dict(type = 'TextLoggerHook'),
         dict(type = 'WandbLoggerHook',
+             with_step = False,
              init_kwargs = dict(project = 'tct',
                                 name = 'tct_rcnn_r50_fpn_2x_tct',
                                 tags = ['mmdetection', 'tct', 'tct_rcnn', 'r50', '2x']))])
