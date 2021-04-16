@@ -4,7 +4,7 @@ _base_ = [
     '../_base_/schedules/schedule_2x.py', '../_base_/default_runtime.py'
 ]
 runner = dict(type = 'EpochBasedRunner', max_epochs = 36)
-model = dict(rpn_head = dict(loss_bbox = dict(type = 'L1Loss', loss_weight = 1.0)),
+model = dict(rpn_head = dict(loss_bbox = dict(type = 'L1Loss', loss_weight = 20.0)),
              roi_head = dict(bbox_head = dict(num_classes = 5)))
 
 log_config = dict(
