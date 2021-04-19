@@ -63,6 +63,11 @@ class TCTRCNN(TwoStageDetector):
 
         self.init_weights(pretrained = pretrained)
 
+    @property
+    def with_noise(self):
+        """bool: whether the detector has a noise module"""
+        return hasattr(self, 'noise_module') and self.noise_module is not None
+
     def init_weights(self, pretrained = None):
         """Initialize the weights in detector.
 
@@ -160,22 +165,24 @@ class TCTRCNN(TwoStageDetector):
         self.train()
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
         # noise
-        noise_x = tuple(self.noise_module(feat) for feat in x)
-        noise_bboxes = [torch.cat([det_bbox, gt_bbox]) for det_bbox, gt_bbox in zip(det_bboxes, kwargs['normal']['gt_bboxes'])]
-        noise_labels = [torch.cat([det_label, gt_label]) for det_label, gt_label in zip(det_labels, kwargs['normal']['gt_labels'])]
-        # RPN forward and loss
-        if self.with_rpn:
-            proposal_cfg = self.train_cfg.get('rpn_proposal', self.test_cfg.rpn)
-            rpn_losses, proposal_list = self.rpn_head['normal'].forward_train(noise_x, img_metas, noise_bboxes, gt_labels = None,
-                                                                              gt_bboxes_ignore = None, proposal_cfg = proposal_cfg)
-            for k, v in rpn_losses.items():
-                losses['normal_' + k] = v
-        else:
-            proposal_list = proposals
+        if self.with_noise:
+            noise_x = tuple(self.noise_module(feat) for feat in x)
+            noise_bboxes = [torch.cat([det_bbox, gt_bbox]) for det_bbox, gt_bbox in zip(det_bboxes, kwargs['normal']['gt_bboxes'])]
+            noise_labels = [torch.cat([det_label, gt_label]) for det_label, gt_label in zip(det_labels, kwargs['normal']['gt_labels'])]
+            # RPN forward and loss
+            if self.with_rpn:
+                proposal_cfg = self.train_cfg.get('rpn_proposal', self.test_cfg.rpn)
+                rpn_losses, proposal_list = self.rpn_head['normal'].forward_train(noise_x, img_metas, noise_bboxes, gt_labels = None,
+                                                                                  gt_bboxes_ignore = None, proposal_cfg = proposal_cfg)
+                for k, v in rpn_losses.items():
+                    losses['normal_' + k] = v
+            else:
+                proposal_list = proposals
 
-        roi_losses = self.roi_head['normal'].forward_train(noise_x, img_metas, proposal_list, noise_bboxes, noise_labels, None, **kwargs)
-        for k, v in roi_losses.items():
-            losses['normal_' + k] = v
+            roi_losses = self.roi_head['normal'].forward_train(noise_x, img_metas, proposal_list, noise_bboxes, noise_labels, None,
+                                                               **kwargs)
+            for k, v in roi_losses.items():
+                losses['normal_' + k] = v
 
         ################
         # Abnormal stage
