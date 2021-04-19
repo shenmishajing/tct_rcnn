@@ -162,8 +162,8 @@ class TCTRCNN(TwoStageDetector):
                 proposal_list = proposals
             det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_metas, proposal_list,
                                                                                 self.roi_head['normal'].test_cfg)
+            det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
         self.train()
-        det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
         # noise
         if self.with_noise:
             noise_x = tuple(self.noise_module(feat) for feat in x)

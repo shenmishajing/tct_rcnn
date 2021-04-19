@@ -34,7 +34,7 @@ class TCTRoIHead(CascadeRoIHead):
     def init_fusion_module(self):
         num_channels = 256
         self.fusion_module = nn.ModuleDict()
-        for stage in self.stages + ['update']:
+        for stage in self.stages + ['memory_update']:
             self.fusion_module[stage] = nn.Sequential(
                 nn.Conv2d(2 * num_channels, 2 * num_channels, 1),
                 nn.ReLU(),
@@ -43,7 +43,7 @@ class TCTRoIHead(CascadeRoIHead):
                 nn.Conv2d(2 * num_channels, num_channels, 1),
                 nn.ReLU()
             )
-        self.memory_feats=nn.Parameter(torch.Tensor())
+        # self.memory_feats = nn.Parameter(torch.Tensor(requires_grad = False))
 
     def init_bbox_head(self, bbox_roi_extractor, bbox_head):
         """Initialize box head and box roi extractor.
@@ -169,6 +169,7 @@ class TCTRoIHead(CascadeRoIHead):
 
         # build normal_bbox_feats
         normal_rois = bbox2roi(det_bboxes)
+        normal_bbox_feats = self.bbox_roi_extractor(x[:self.bbox_roi_extractor.num_inputs], normal_rois)
 
         # head inference
         for stage in self.stages:
