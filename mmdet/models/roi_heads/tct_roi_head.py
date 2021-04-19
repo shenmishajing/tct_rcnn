@@ -88,6 +88,34 @@ class TCTRoIHead(CascadeRoIHead):
                                bbox_results['bbox_pred'])
         return outs
 
+    def _bbox_forward(self, stage, x, rois, num_poses = None):
+        """Box head forward function used in both training and testing."""
+        bbox_roi_extractor = self.bbox_roi_extractor[stage]
+        bbox_head = self.bbox_head[stage]
+        bbox_feats = bbox_roi_extractor(x[:bbox_roi_extractor.num_inputs],
+                                        rois)
+        # do not support caffe_c4 model anymore
+        cls_score, bbox_pred = bbox_head(bbox_feats, num_poses)
+
+        bbox_results = dict(
+            cls_score = cls_score, bbox_pred = bbox_pred, bbox_feats = bbox_feats)
+        return bbox_results
+
+    def _bbox_forward_train(self, stage, x, sampling_results, gt_bboxes,
+                            gt_labels, rcnn_train_cfg):
+        """Run forward function and calculate loss for box head in training."""
+        rois = bbox2roi([res.bboxes for res in sampling_results])
+        bbox_results = self._bbox_forward(stage, x, rois, [len(res.pos_bboxes) for res in sampling_results])
+        bbox_targets = self.bbox_head[stage].get_targets(
+            sampling_results, gt_bboxes, gt_labels, rcnn_train_cfg)
+        loss_bbox = self.bbox_head[stage].loss(bbox_results['cls_score'],
+                                               bbox_results['bbox_pred'], rois,
+                                               *bbox_targets)
+
+        bbox_results.update(
+            loss_bbox = loss_bbox, rois = rois, bbox_targets = bbox_targets)
+        return bbox_results
+
     def forward_train(self,
                       x,
                       img_metas,
@@ -207,7 +235,7 @@ class TCTRoIHead(CascadeRoIHead):
                 cur_rois = torch.cat(proposal_list)
             else:
                 cur_rois = bbox2roi(proposal_list)
-            bbox_results = self._bbox_forward(stage, x, cur_rois)
+            bbox_results = self._bbox_forward(stage, x, cur_rois, [None for _ in range(len(img_metas))])
 
             # split batch bbox prediction back to each image
             cls_score = bbox_results['cls_score']
