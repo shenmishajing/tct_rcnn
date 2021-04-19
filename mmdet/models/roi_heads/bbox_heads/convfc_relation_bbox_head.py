@@ -41,14 +41,16 @@ class ConvFCRelationBBoxHead(Shared2FCBBoxHead):
 
             x = self.relu(self.shared_fcs[0](x))
             x = x.reshape(len(num_poses), -1, *x.shape[1:])
+            x_list = []
             for i in range(len(num_poses)):
-                if num_poses[i] <= 0:
+                if num_poses[i] is None or num_poses[i] <= 0:
+                    x_list.append(x[i])
                     continue
                 cur_x = x[i, :num_poses[i]]
                 relation_weight = cur_x.mm(self.relation_matrix).mm(cur_x.T)
-                relation_weight += torch.eye(len(relation_weight), dtype = cur_x.dtype, device = cur_x.device)
-                x[i, :num_poses[i]] = relation_weight.mm(cur_x)
-            x = x.reshape(-1, *x.shape[2:])
+                relation_weight = relation_weight + torch.eye(len(relation_weight), dtype = cur_x.dtype, device = cur_x.device)
+                x_list.append(torch.cat([relation_weight.mm(cur_x), x[i, num_poses[i]:]]))
+            x = torch.cat(x_list)
 
             for fc in self.shared_fcs[1:]:
                 x = self.relu(fc(x))
