@@ -18,16 +18,30 @@ class ConvFCRelationBBoxHead(Shared2FCBBoxHead):
     """  # noqa: W605
 
     def __init__(self,
+                 num_relation_parts = 1,
                  *args,
                  **kwargs):
         super(ConvFCRelationBBoxHead, self).__init__(*args, **kwargs)
-        self.relation_matrix = nn.Parameter(torch.Tensor(self.fc_out_channels, self.fc_out_channels))
+        self.num_relation_parts = num_relation_parts
+        assert self.fc_out_channels % self.num_relation_parts == 0, 'fc_out_channels must be divisible by num_relation_parts'
+        part_len = self.fc_out_channels // self.num_relation_parts
+        self.relation_matrix = nn.Parameter(torch.Tensor(self.num_relation_parts, part_len, part_len))
+        self.softmax = nn.Softmax(dim = -1)
 
     def init_weights(self):
         super(ConvFCRelationBBoxHead, self).init_weights()
         nn.init.xavier_uniform_(self.relation_matrix)
 
-    def forward(self, x, num_poses = None):
+    def _relation_forwards(self, x):
+        x = x.reshape(x.shape[0], self.num_relation_parts, -1)
+        x = x.permute(1, 0, 2)
+        relation_weight = x.bmm(self.relation_matrix).bmm(x.permute(0, 2, 1))
+        relation_weight = self.softmax(relation_weight)
+        relation_feature = (relation_weight.bmm(x) + x) / 2
+        relation_feature = relation_feature.permute(1, 0, 2)
+        return relation_feature.reshape(relation_feature.shape[0], -1)
+
+    def forward(self, x, roi_inds = None, num_poses = None):
         # shared part
         if self.num_shared_convs > 0:
             for conv in self.shared_convs:
@@ -40,16 +54,29 @@ class ConvFCRelationBBoxHead(Shared2FCBBoxHead):
             x = x.flatten(1)
 
             x = self.relu(self.shared_fcs[0](x))
-            x = x.reshape(len(num_poses), -1, *x.shape[1:])
+
             x_list = []
-            for i in range(len(num_poses)):
-                if num_poses[i] is None or num_poses[i] <= 0:
-                    x_list.append(x[i])
-                    continue
-                cur_x = x[i, :num_poses[i]]
-                relation_weight = cur_x.mm(self.relation_matrix).mm(cur_x.T)
-                relation_weight = relation_weight + torch.eye(len(relation_weight), dtype = cur_x.dtype, device = cur_x.device)
-                x_list.append(torch.cat([relation_weight.mm(cur_x), x[i, num_poses[i]:]]))
+            if roi_inds is None or any([roi_ind is None for roi_ind in roi_inds]):
+                roi_inds = None
+                if num_poses is not None:
+                    x = x.reshape(len(num_poses), -1, *x.shape[1:])
+            if num_poses is None:
+                x_list.append(self._relation_forwards(x))
+            else:
+                for i in range(len(num_poses)):
+                    if roi_inds is None:
+                        cur_x = x[i]
+                    else:
+                        cur_x = x[roi_inds[i]]
+                    if num_poses[i] is None:
+                        x_list.append(self._relation_forwards(cur_x))
+                    else:
+                        if num_poses[i] > 0:
+                            pos_x = cur_x[:num_poses[i]]
+                            relation_feature = self._relation_forwards(pos_x)
+                            x_list.append(torch.cat([relation_feature, cur_x[num_poses[i]:]]))
+                        else:
+                            x_list.append(cur_x)
             x = torch.cat(x_list)
 
             for fc in self.shared_fcs[1:]:

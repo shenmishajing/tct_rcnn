@@ -95,7 +95,7 @@ class TCTRoIHead(CascadeRoIHead):
         bbox_feats = bbox_roi_extractor(x[:bbox_roi_extractor.num_inputs],
                                         rois)
         # do not support caffe_c4 model anymore
-        cls_score, bbox_pred = bbox_head(bbox_feats, num_poses)
+        cls_score, bbox_pred = bbox_head(bbox_feats, [rois[:, 0] == i for i in range(len(num_poses))], num_poses)
 
         bbox_results = dict(
             cls_score = cls_score, bbox_pred = bbox_pred, bbox_feats = bbox_feats)

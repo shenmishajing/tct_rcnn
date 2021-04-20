@@ -47,6 +47,7 @@ model = dict(
             type = 'ConvFCRelationBBoxHead',
             in_channels = 256,
             fc_out_channels = 1024,
+            num_relation_parts = 16,
             roi_feat_size = 7,
             num_classes = 5,
             bbox_coder = dict(
