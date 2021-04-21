@@ -4,6 +4,7 @@ import torch.nn as nn
 from mmdet.core import bbox2result, bbox2roi, bbox_mapping, build_assigner, build_sampler, merge_aug_bboxes, merge_aug_masks, multiclass_nms
 from ..builder import HEADS, build_head, build_roi_extractor
 from .cascade_roi_head import CascadeRoIHead
+from .bbox_heads.convfc_relation_bbox_head import ConvFCRelationBBoxHead
 
 
 @HEADS.register_module()
@@ -95,7 +96,10 @@ class TCTRoIHead(CascadeRoIHead):
         bbox_feats = bbox_roi_extractor(x[:bbox_roi_extractor.num_inputs],
                                         rois)
         # do not support caffe_c4 model anymore
-        cls_score, bbox_pred = bbox_head(bbox_feats, [rois[:, 0] == i for i in range(len(num_poses))], num_poses)
+        if isinstance(bbox_head, ConvFCRelationBBoxHead):
+            cls_score, bbox_pred = bbox_head(bbox_feats, [rois[:, 0] == i for i in range(len(num_poses))], num_poses)
+        else:
+            cls_score, bbox_pred = bbox_head(bbox_feats)
 
         bbox_results = dict(
             cls_score = cls_score, bbox_pred = bbox_pred, bbox_feats = bbox_feats)

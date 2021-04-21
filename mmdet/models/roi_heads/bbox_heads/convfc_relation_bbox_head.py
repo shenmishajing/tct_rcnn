@@ -35,7 +35,8 @@ class ConvFCRelationBBoxHead(Shared2FCBBoxHead):
     def _relation_forwards(self, x):
         x = x.reshape(x.shape[0], self.num_relation_parts, -1)
         x = x.permute(1, 0, 2)
-        relation_weight = x.bmm(self.relation_matrix).bmm(x.permute(0, 2, 1))
+        encoding_feat = x.bmm(self.relation_matrix)
+        relation_weight = encoding_feat.bmm(encoding_feat.permute(0, 2, 1))
         relation_weight = self.softmax(relation_weight)
         relation_feature = (relation_weight.bmm(x) + x) / 2
         relation_feature = relation_feature.permute(1, 0, 2)
