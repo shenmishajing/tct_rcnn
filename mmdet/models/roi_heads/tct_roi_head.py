@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import random
 
 from mmdet.core import bbox2result, bbox2roi, bbox_mapping, build_assigner, build_sampler, merge_aug_bboxes, merge_aug_masks, multiclass_nms
 from ..builder import HEADS, build_head, build_roi_extractor
@@ -11,7 +12,7 @@ class TCTRoIHead(CascadeRoIHead):
     """RoI head for TCT RCNN.
     """
 
-    def __init__(self, num_classes, stage_loss_weights, train_cfg, *args, **kwargs):
+    def __init__(self, num_classes, stage_loss_weights, train_cfg, num_memory = 10, *args, **kwargs):
         self.stages = ['single', 'multi', 'tct']
         if stage_loss_weights is None or stage_loss_weights == {} or self.stages[0] not in self.stages:
             stage_loss_weights = {}
@@ -29,22 +30,8 @@ class TCTRoIHead(CascadeRoIHead):
         super(TCTRoIHead, self).__init__(num_stages = len(self.stages), stage_loss_weights = stage_loss_weights, train_cfg = train_cfg,
                                          *args, **kwargs)
         self.num_classes = num_classes
-        self.memory_bank = None
-        self.init_fusion_module()
-
-    def init_fusion_module(self):
-        num_channels = 256
-        self.fusion_module = nn.ModuleDict()
-        for stage in self.stages + ['normal', 'memory_update']:
-            self.fusion_module[stage] = nn.Sequential(
-                nn.Conv2d(2 * num_channels, 2 * num_channels, 1),
-                nn.ReLU(),
-                nn.Conv2d(2 * num_channels, 2 * num_channels, 1),
-                nn.ReLU(),
-                nn.Conv2d(2 * num_channels, num_channels, 1),
-                nn.ReLU()
-            )
-        # self.memory_feats = nn.Parameter(torch.Tensor(requires_grad = False))
+        self.memory_bank = []
+        self.num_memory = num_memory
 
     def init_bbox_head(self, bbox_roi_extractor, bbox_head):
         """Initialize box head and box roi extractor.
@@ -87,8 +74,8 @@ class TCTRoIHead(CascadeRoIHead):
                 self.bbox_head[stage].init_weights()
 
     def get_memory(self, tensor = None, device = torch.device('cpu'), dtype = torch.float32):
-        if self.memory_bank is not None:
-            return self.memory_bank
+        if self.memory_bank:
+            return random.choice(self.memory_bank)
         else:
             out_channels = self.bbox_roi_extractor.out_channels
             out_size = self.bbox_roi_extractor.roi_layers[0].output_size
@@ -98,11 +85,11 @@ class TCTRoIHead(CascadeRoIHead):
                 return torch.zeros(out_channels, *out_size, device = device, dtype = dtype)
 
     def update_memory(self, feats):
-        feats = feats.mean(dim = 0)
-        if self.memory_bank is None:
-            self.memory_bank = feats.clone().detach()
+        if self.num_memory <= len(feats):
+            inds = random.sample(range(len(feats)), self.num_memory)
+            self.memory_bank = [feats[ind].clone().detach() for ind in inds]
         else:
-            self.memory_bank = self.fusion_module['memory_update'](torch.cat([feats, self.memory_bank])[None, ...])[0].clone().detach()
+            self.memory_bank = self.memory_bank[len(feats) - self.num_memory:] + [feat.clone().detach() for feat in feats]
 
     def forward_dummy(self, x, proposals):
         """Dummy forward function."""
@@ -122,16 +109,13 @@ class TCTRoIHead(CascadeRoIHead):
         normal_bbox_feats = self.bbox_roi_extractor(x[:self.bbox_roi_extractor.num_inputs], normal_rois)
         if len(normal_bbox_feats):
             self.update_memory(normal_bbox_feats)
-            normal_memory = self.get_memory(normal_bbox_feats)
             bbox_feats = []
             for i in range(len(det_bboxes)):
                 cur_bbox_feats = normal_bbox_feats[normal_rois[:, 0] == i]
                 if len(cur_bbox_feats):
-                    cur_bbox_feats = cur_bbox_feats.mean(dim = 0)
+                    bbox_feats.append(random.choice(cur_bbox_feats))
                 else:
-                    cur_bbox_feats = torch.zeros_like(normal_memory)
-                feats = self.fusion_module['normal'](torch.cat([cur_bbox_feats, normal_memory])[None, ...])[0]
-                bbox_feats.append(feats)
+                    bbox_feats.append(None)
         else:
             bbox_feats = None
 
@@ -153,8 +137,7 @@ class TCTRoIHead(CascadeRoIHead):
                 else:
                     cur_normal_bbox_feats = normal_bbox_feats[i]
                 cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
-                cur_bbox_feats = torch.cat([cur_bbox_feats, cur_normal_bbox_feats], dim = 1)
-                cur_bbox_feats = self.fusion_module[stage](cur_bbox_feats)
+                cur_bbox_feats = 2 * cur_bbox_feats - cur_normal_bbox_feats
                 feats.append(cur_bbox_feats)
         bbox_feats = torch.cat(feats)
         # do not support caffe_c4 model anymore
