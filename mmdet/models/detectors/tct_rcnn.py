@@ -164,25 +164,30 @@ class TCTRCNN(TwoStageDetector):
                                                                                 self.roi_head['normal'].test_cfg)
             det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
         self.train()
+
+        normal_x = x
+        normal_bboxes = kwargs['normal']['gt_bboxes']
+        normal_labels = kwargs['normal']['gt_labels']
         # noise
         if self.with_noise:
-            noise_x = tuple(self.noise_module(feat) for feat in x)
-            noise_bboxes = [torch.cat([det_bbox, gt_bbox]) for det_bbox, gt_bbox in zip(det_bboxes, kwargs['normal']['gt_bboxes'])]
-            noise_labels = [torch.cat([det_label, gt_label]) for det_label, gt_label in zip(det_labels, kwargs['normal']['gt_labels'])]
-            # RPN forward and loss
-            if self.with_rpn:
-                proposal_cfg = self.train_cfg.get('rpn_proposal', self.test_cfg.rpn)
-                rpn_losses, proposal_list = self.rpn_head['normal'].forward_train(noise_x, img_metas, noise_bboxes, gt_labels = None,
-                                                                                  gt_bboxes_ignore = None, proposal_cfg = proposal_cfg)
-                for k, v in rpn_losses.items():
-                    losses['normal_' + k] = v
-            else:
-                proposal_list = proposals
+            normal_x = tuple(self.noise_module(feat) for feat in normal_x)
+            normal_bboxes = [torch.cat([det_bbox, gt_bbox]) for det_bbox, gt_bbox in zip(det_bboxes, normal_bboxes)]
+            normal_labels = [torch.cat([det_label, gt_label]) for det_label, gt_label in zip(det_labels, normal_labels)]
 
-            roi_losses = self.roi_head['normal'].forward_train(noise_x, img_metas, proposal_list, noise_bboxes, noise_labels, None,
-                                                               **kwargs)
-            for k, v in roi_losses.items():
+        # RPN forward and loss
+        if self.with_rpn:
+            proposal_cfg = self.train_cfg.get('rpn_proposal', self.test_cfg.rpn)
+            rpn_losses, proposal_list = self.rpn_head['normal'].forward_train(normal_x, img_metas, normal_bboxes, gt_labels = None,
+                                                                              gt_bboxes_ignore = None, proposal_cfg = proposal_cfg)
+            for k, v in rpn_losses.items():
                 losses['normal_' + k] = v
+        else:
+            proposal_list = proposals
+
+        roi_losses = self.roi_head['normal'].forward_train(normal_x, img_metas, proposal_list, normal_bboxes, normal_labels, None,
+                                                           **kwargs)
+        for k, v in roi_losses.items():
+            losses['normal_' + k] = v
 
         ################
         # Abnormal stage
