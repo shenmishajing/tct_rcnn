@@ -109,7 +109,7 @@ class TCTRoIHead(CascadeRoIHead):
                             gt_labels, rcnn_train_cfg):
         """Run forward function and calculate loss for box head in training."""
         rois = bbox2roi([res.bboxes for res in sampling_results])
-        bbox_results = self._bbox_forward(stage, x, rois, [len(res.pos_bboxes) for res in sampling_results])
+        bbox_results = self._bbox_forward(stage, x, rois, [None for _ in sampling_results])
         bbox_targets = self.bbox_head[stage].get_targets(
             sampling_results, gt_bboxes, gt_labels, rcnn_train_cfg)
         loss_bbox = self.bbox_head[stage].loss(bbox_results['cls_score'],
