@@ -42,7 +42,7 @@ class ConvFCRelationBBoxHead(Shared2FCBBoxHead):
         relation_feature = relation_feature.permute(1, 0, 2)
         return relation_feature.reshape(relation_feature.shape[0], -1)
 
-    def forward(self, x, roi_inds = None, num_poses = None):
+    def forward(self, x, rois = None):
         # shared part
         if self.num_shared_convs > 0:
             for conv in self.shared_convs:
@@ -56,29 +56,13 @@ class ConvFCRelationBBoxHead(Shared2FCBBoxHead):
 
             x = self.relu(self.shared_fcs[0](x))
 
-            x_list = []
-            if roi_inds is None or any([roi_ind is None for roi_ind in roi_inds]):
-                roi_inds = None
-                if num_poses is not None:
-                    x = x.reshape(len(num_poses), -1, *x.shape[1:])
-            if num_poses is None:
-                x_list.append(self._relation_forwards(x))
+            if rois is None:
+                x = self._relation_forwards(x)
             else:
-                for i in range(len(num_poses)):
-                    if roi_inds is None:
-                        cur_x = x[i]
-                    else:
-                        cur_x = x[roi_inds[i]]
-                    if num_poses[i] is None:
-                        x_list.append(self._relation_forwards(cur_x))
-                    else:
-                        if num_poses[i] > 0:
-                            pos_x = cur_x[:num_poses[i]]
-                            relation_feature = self._relation_forwards(pos_x)
-                            x_list.append(torch.cat([relation_feature, cur_x[num_poses[i]:]]))
-                        else:
-                            x_list.append(cur_x)
-            x = torch.cat(x_list)
+                x_list = []
+                for i in rois[:, 0].unique():
+                    x_list.append(self._relation_forwards(x[rois[:, 0] == i]))
+                x = torch.cat(x_list)
 
             for fc in self.shared_fcs[1:]:
                 x = self.relu(fc(x))
