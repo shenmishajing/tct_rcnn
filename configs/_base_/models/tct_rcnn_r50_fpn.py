@@ -16,21 +16,38 @@ model = dict(
         out_channels = 256,
         num_outs = 5),
     rpn_head = dict(
-        type = 'RPNHead',
-        in_channels = 256,
-        feat_channels = 256,
-        anchor_generator = dict(
-            type = 'AnchorGenerator',
-            scales = [8],
-            ratios = [0.5, 1.0, 2.0],
-            strides = [4, 8, 16, 32, 64]),
-        bbox_coder = dict(
-            type = 'DeltaXYWHBBoxCoder',
-            target_means = [.0, .0, .0, .0],
-            target_stds = [1.0, 1.0, 1.0, 1.0]),
-        loss_cls = dict(
-            type = 'CrossEntropyLoss', use_sigmoid = True, loss_weight = 1.0),
-        loss_bbox = dict(type = 'L1Loss', loss_weight = 1.0)),
+        normal = dict(
+            type = 'RPNHead',
+            in_channels = 256,
+            feat_channels = 256,
+            anchor_generator = dict(
+                type = 'AnchorGenerator',
+                scales = [8],
+                ratios = [0.5, 1.0, 2.0],
+                strides = [4, 8, 16, 32, 64]),
+            bbox_coder = dict(
+                type = 'DeltaXYWHBBoxCoder',
+                target_means = [.0, .0, .0, .0],
+                target_stds = [1.0, 1.0, 1.0, 1.0]),
+            loss_cls = dict(
+                type = 'CrossEntropyLoss', use_sigmoid = True, loss_weight = 1.0),
+            loss_bbox = dict(type = 'L1Loss', loss_weight = 30.0)),
+        abnormal = dict(
+            type = 'RPNHead',
+            in_channels = 256,
+            feat_channels = 256,
+            anchor_generator = dict(
+                type = 'AnchorGenerator',
+                scales = [8],
+                ratios = [0.5, 1.0, 2.0],
+                strides = [4, 8, 16, 32, 64]),
+            bbox_coder = dict(
+                type = 'DeltaXYWHBBoxCoder',
+                target_means = [.0, .0, .0, .0],
+                target_stds = [1.0, 1.0, 1.0, 1.0]),
+            loss_cls = dict(
+                type = 'CrossEntropyLoss', use_sigmoid = True, loss_weight = 1.0),
+            loss_bbox = dict(type = 'L1Loss', loss_weight = 1.0))),
     # noise_module = dict(
     #     type = 'DropBlock2D',
     #     block_size = 3,
