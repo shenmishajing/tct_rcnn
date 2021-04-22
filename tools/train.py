@@ -3,6 +3,8 @@ import copy
 import os
 import os.path as osp
 import time
+import random
+import string
 import warnings
 
 import mmcv
@@ -103,8 +105,8 @@ def main():
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
         # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('./work_dirs',
-                                osp.splitext(osp.basename(args.config))[0])
+        cfg.work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(args.config))[0] + '_' + ''.join(
+            random.choices(string.ascii_letters + string.digits, k = 8)))
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
     if args.gpu_ids is not None:
