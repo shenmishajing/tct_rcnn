@@ -1,4 +1,4 @@
-part = 'abnormal'
+part = 'normal'
 model = dict(
     type = 'TCTRCNN',
     part = part,
