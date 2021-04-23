@@ -1,7 +1,6 @@
-part = 'abnormal'
 model = dict(
     type = 'TCTRCNN',
-    part = part,
+    part = 'abnormal',
     pretrained = 'torchvision://resnet50',
     backbone = dict(
         type = 'ResNet',
