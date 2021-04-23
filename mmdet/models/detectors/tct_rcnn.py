@@ -186,7 +186,7 @@ class TCTRCNN(TwoStageDetector):
         else:
             proposal_list = proposals
 
-        roi_losses = self.roi_head['normal'].forward_train(normal_x, img_metas, proposal_list, normal_bboxes, normal_labels, None,
+        roi_losses = self.roi_head['normal'].forward_train(normal_x, img_metas, proposal_list, normal_bboxes, normal_labels, None, None,
                                                            **kwargs)
         for k, v in roi_losses.items():
             losses['normal_' + k] = v
@@ -237,7 +237,7 @@ class TCTRCNN(TwoStageDetector):
             proposal_list = proposals
 
         if self.part == 'normal':
-            return await self.roi_head['normal'].async_simple_test(x, proposal_list, img_meta)
+            return await self.roi_head['normal'].async_simple_test(x, proposal_list, img_meta, rescale = rescale)
 
         det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_meta, proposal_list, self.roi_head['normal'].test_cfg)
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
@@ -248,7 +248,7 @@ class TCTRCNN(TwoStageDetector):
 
         # RPN forward and loss
         if self.with_rpn:
-            proposal_list = await self.rpn_head['abnormal'].async_simple_test_rpn(x, img_meta)
+            proposal_list = await self.rpn_head['abnormal'].async_simple_test_rpn(x, img_meta, rescale = rescale)
         else:
             proposal_list = proposals
 
@@ -270,7 +270,7 @@ class TCTRCNN(TwoStageDetector):
             proposal_list = proposals
 
         if self.part == 'normal':
-            return self.roi_head['normal'].simple_test(x, proposal_list, img_metas)
+            return self.roi_head['normal'].simple_test(x, proposal_list, img_metas, rescale = rescale)
 
         det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_metas, proposal_list, self.roi_head['normal'].test_cfg)
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
@@ -286,7 +286,7 @@ class TCTRCNN(TwoStageDetector):
             proposal_list = proposals
 
         pos_det_bboxes = [bbox[label == 0] for bbox, label in zip(det_bboxes, det_labels)]
-        return self.roi_head['abnormal'].simple_test(x, proposal_list, img_metas, pos_det_bboxes)
+        return self.roi_head['abnormal'].simple_test(x, proposal_list, img_metas, pos_det_bboxes, rescale = rescale)
 
     def aug_test(self, imgs, img_metas, rescale = False):
         """Test with augmentations.
@@ -303,7 +303,7 @@ class TCTRCNN(TwoStageDetector):
         # inference
         proposal_list = self.rpn_head['normal'].aug_test_rpn(x, img_metas)
         if self.part == 'normal':
-            return self.roi_head['normal'].aug_test(x, proposal_list, img_metas)
+            return self.roi_head['normal'].aug_test(x, proposal_list, img_metas, rescale = rescale)
 
         det_bboxes, det_labels = self.roi_head['normal'].aug_test_bboxes(x, img_metas, proposal_list, self.roi_head['normal'].test_cfg)
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
@@ -316,4 +316,4 @@ class TCTRCNN(TwoStageDetector):
         proposal_list = self.rpn_head['abnormal'].aug_test_rpn(x, img_metas)
 
         pos_det_bboxes = [bbox[label == 0] for bbox, label in zip(det_bboxes, det_labels)]
-        return self.roi_head['abnormal'].aug_test(x, proposal_list, img_metas, pos_det_bboxes)
+        return self.roi_head['abnormal'].aug_test(x, proposal_list, img_metas, pos_det_bboxes, rescale = rescale)
