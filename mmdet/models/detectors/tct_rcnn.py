@@ -235,10 +235,11 @@ class TCTRCNN(TwoStageDetector):
             proposal_list = await self.rpn_head['normal'].async_simple_test_rpn(x, img_meta)
         else:
             proposal_list = proposals
-        det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_meta, proposal_list, self.roi_head['normal'].test_cfg)
 
         if self.part == 'normal':
-            return det_bboxes, det_labels
+            return await self.roi_head['normal'].async_simple_test(x, proposal_list, img_meta)
+
+        det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_meta, proposal_list, self.roi_head['normal'].test_cfg)
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
 
         ################
@@ -267,11 +268,11 @@ class TCTRCNN(TwoStageDetector):
             proposal_list = self.rpn_head['normal'].simple_test_rpn(x, img_metas)
         else:
             proposal_list = proposals
-        det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_metas, proposal_list,
-                                                                            self.roi_head['normal'].test_cfg)
 
         if self.part == 'normal':
-            return det_bboxes, det_labels
+            return self.roi_head['normal'].simple_test(x, proposal_list, img_metas)
+
+        det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_metas, proposal_list, self.roi_head['normal'].test_cfg)
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
 
         ################
@@ -301,10 +302,10 @@ class TCTRCNN(TwoStageDetector):
 
         # inference
         proposal_list = self.rpn_head['normal'].aug_test_rpn(x, img_metas)
-        det_bboxes, det_labels = self.roi_head['normal'].aug_test_bboxes(x, img_metas, proposal_list, self.roi_head['normal'].test_cfg)
-
         if self.part == 'normal':
-            return det_bboxes, det_labels
+            return self.roi_head['normal'].aug_test(x, proposal_list, img_metas)
+
+        det_bboxes, det_labels = self.roi_head['normal'].aug_test_bboxes(x, img_metas, proposal_list, self.roi_head['normal'].test_cfg)
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
 
         ################
