@@ -1,18 +1,11 @@
 _base_ = [
-    '../_base_/models/tct_rcnn_r50_fpn.py',
-    '../_base_/datasets/tct_detection.py',
+    '../_base_/models/tct_rcnn_r50_fpn_normal.py',
+    '../_base_/datasets/tct_detection_normal.py',
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
 
 custom_hooks = []
-model = dict(
-    rpn_head = dict(abnormal = dict(
-        loss_cls = dict(loss_weight = 0.0),
-        loss_bbox = dict(loss_weight = 0.0))),
-    roi_head = dict(abnormal = dict(bbox_head = dict(
-        loss_cls = dict(loss_weight = 0.0),
-        loss_bbox = dict(loss_weight = 0.0)))))
-
+model = dict(rpn_head = dict(normal = dict(loss_bbox = dict(type = 'L1Loss', loss_weight = 20.0))))
 
 log_config = dict(
     hooks = [

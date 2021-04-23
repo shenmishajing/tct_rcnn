@@ -1,4 +1,4 @@
-part = 'abnormal'
+part = 'normal'
 model = dict(
     type = 'TCTRCNN',
     part = part,
@@ -95,9 +95,9 @@ model = dict(
                 pos_weight = -1,
                 debug = False),
             test_cfg = dict(
-                score_thr = 0.05,
+                score_thr = 0.5,
                 nms = dict(type = 'nms', iou_threshold = 0.5),
-                max_per_img = 5)
+                max_per_img = 1)
             # soft-nms is also supported for rcnn testing
             # e.g., nms=dict(type='soft_nms', iou_threshold=0.5, min_score=0.05)
         ),

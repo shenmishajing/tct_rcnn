@@ -20,11 +20,13 @@ class TCTRCNN(TwoStageDetector):
                  rpn_head = None,
                  noise_module = None,
                  roi_head = None,
+                 part = 'abnormal',
                  train_cfg = None,
                  test_cfg = None,
                  pretrained = None):
         super(TwoStageDetector, self).__init__()
         self.stages = ['normal', 'abnormal']
+        self.part = part
         self.backbone = build_backbone(backbone)
 
         if neck is not None:
@@ -189,22 +191,28 @@ class TCTRCNN(TwoStageDetector):
         for k, v in roi_losses.items():
             losses['normal_' + k] = v
 
+        if self.part == 'normal':
+            return losses
+
         ################
         # Abnormal stage
         ################
 
+        abnormal_bboxes = kwargs['tct']['gt_bboxes']
+        abnormal_labels = kwargs['tct']['gt_labels']
+
         # RPN forward and loss
         if self.with_rpn:
             proposal_cfg = self.train_cfg.get('rpn_proposal', self.test_cfg.rpn)
-            rpn_losses, proposal_list = self.rpn_head['abnormal'].forward_train(x, img_metas, gt_bboxes, gt_labels = None,
-                                                                                gt_bboxes_ignore = gt_bboxes_ignore,
+            rpn_losses, proposal_list = self.rpn_head['abnormal'].forward_train(x, img_metas, abnormal_bboxes, gt_labels = None,
+                                                                                gt_bboxes_ignore = None,
                                                                                 proposal_cfg = proposal_cfg)
             losses.update(rpn_losses)
         else:
             proposal_list = proposals
 
         pos_det_bboxes = [bbox[label == 0] for bbox, label in zip(det_bboxes, det_labels)]
-        roi_losses = self.roi_head['abnormal'].forward_train(x, img_metas, proposal_list, gt_bboxes, gt_labels, gt_bboxes_ignore, gt_masks,
+        roi_losses = self.roi_head['abnormal'].forward_train(x, img_metas, proposal_list, abnormal_bboxes, abnormal_labels, None, None,
                                                              pos_det_bboxes, **kwargs)
         losses.update(roi_losses)
 
@@ -228,6 +236,9 @@ class TCTRCNN(TwoStageDetector):
         else:
             proposal_list = proposals
         det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_meta, proposal_list, self.roi_head['normal'].test_cfg)
+
+        if self.part == 'normal':
+            return det_bboxes, det_labels
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
 
         ################
@@ -258,6 +269,9 @@ class TCTRCNN(TwoStageDetector):
             proposal_list = proposals
         det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_metas, proposal_list,
                                                                             self.roi_head['normal'].test_cfg)
+
+        if self.part == 'normal':
+            return det_bboxes, det_labels
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
 
         ################
@@ -288,6 +302,9 @@ class TCTRCNN(TwoStageDetector):
         # inference
         proposal_list = self.rpn_head['normal'].aug_test_rpn(x, img_metas)
         det_bboxes, det_labels = self.roi_head['normal'].aug_test_bboxes(x, img_metas, proposal_list, self.roi_head['normal'].test_cfg)
+
+        if self.part == 'normal':
+            return det_bboxes, det_labels
         det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
 
         ################
