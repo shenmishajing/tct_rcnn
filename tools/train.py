@@ -111,9 +111,10 @@ def main():
         count = 0
         while osp.exists(work_dir):
             work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(args.config))[0] + '_' + ''.join(
-                random.choices(string.ascii_letters + string.digits, k = k)))
+                random.choices(string.ascii_letters + string.digits, k = random.randint(4, k))))
             count += 1
-            if count >= len(string.ascii_letters + string.digits) ** (k // 2):
+            if count >= 100:
+                count = 0
                 k *= 2
         cfg.work_dir = work_dir
     if args.resume_from is not None:
