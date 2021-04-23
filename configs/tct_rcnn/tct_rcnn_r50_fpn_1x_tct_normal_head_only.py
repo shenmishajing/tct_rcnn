@@ -5,7 +5,6 @@ _base_ = [
 ]
 
 custom_hooks = []
-model = dict(rpn_head = dict(normal = dict(loss_bbox = dict(type = 'L1Loss', loss_weight = 20.0))))
 
 log_config = dict(
     hooks = [
@@ -13,5 +12,5 @@ log_config = dict(
         dict(type = 'WandbLoggerHook',
              with_step = False,
              init_kwargs = dict(project = 'tct',
-                                name = 'tct_rcnn_r50_fpn_1x_tct',
+                                name = 'tct_rcnn_r50_fpn_1x_tct_normal_head_only',
                                 tags = ['mmdetection', 'tct', 'tct_rcnn', 'r50', '1x']))])
