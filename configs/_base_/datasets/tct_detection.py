@@ -1,6 +1,6 @@
 dataset_type = 'TCTDataset'
 part = 'tct'
-min_size = 16
+filter_min_size = 16
 data_root = 'data/tct/'
 img_norm_cfg = dict(
     mean = [123.675, 116.28, 103.53], std = [58.395, 57.12, 57.375], to_rgb = True)
@@ -37,20 +37,20 @@ data = dict(
         ann_file = data_root + 'annotations/train',
         img_prefix = data_root + 'train2017/',
         part = part,
-        min_size = min_size,
+        filter_min_size = filter_min_size,
         pipeline = train_pipeline),
     val = dict(
         type = dataset_type,
         ann_file = data_root + 'annotations/val',
         img_prefix = data_root + 'val2017/',
         part = part,
-        min_size = min_size,
+        filter_min_size = filter_min_size,
         pipeline = test_pipeline),
     test = dict(
         type = dataset_type,
         ann_file = data_root + 'annotations/test',
         img_prefix = data_root + 'val2017/',
         part = part,
-        min_size = min_size,
+        filter_min_size = filter_min_size,
         pipeline = test_pipeline))
 evaluation = dict(interval = 1, metric = 'bbox', save_best = 'bbox_mAP_50', classwise = True)
