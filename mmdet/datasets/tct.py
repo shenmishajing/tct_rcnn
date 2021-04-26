@@ -31,6 +31,7 @@ class TCTDataset(CocoDataset):
                  seg_prefix = None,
                  proposal_file = None,
                  test_mode = False,
+                 filter_min_size = 32,
                  filter_empty_gt = True):
         self.parts = OrderedDict(tct = '', single = '_single', multi = '_multi', normal = '_normal', all = '_all')
         self.part = part
@@ -41,6 +42,7 @@ class TCTDataset(CocoDataset):
         self.proposal_file = proposal_file
         self.test_mode = test_mode
         self.filter_empty_gt = filter_empty_gt
+        self.filter_min_size = filter_min_size
         self.classes = {
             'tct': ['ASCH', 'ASCUS', 'HSIL', 'LSIL', 'SQCA'],
             'single': ['ASCH', 'ASCUS', 'HSIL', 'LSIL', 'SQCA'],
@@ -74,7 +76,7 @@ class TCTDataset(CocoDataset):
 
         # filter images too small and containing no annotations
         if not test_mode:
-            valid_inds = self._filter_imgs()
+            valid_inds = self._filter_imgs(self.filter_min_size)
             self.data_infos = [self.data_infos[i] for i in valid_inds]
             if self.proposals is not None:
                 self.proposals = [self.proposals[i] for i in valid_inds]
