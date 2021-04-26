@@ -5,6 +5,7 @@ _base_ = [
 ]
 
 custom_hooks = []
+model = dict(roi_head = dict(bbox_head = dict(tct = dict(num_relation_parts = 16))))
 
 log_config = dict(
     hooks = [
