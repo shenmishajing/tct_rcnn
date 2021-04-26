@@ -32,6 +32,21 @@ class TCTRoIHead(CascadeRoIHead):
         self.num_classes = num_classes
         self.memory_bank = []
         self.num_memory = num_memory
+        self.init_fusion_module()
+
+    def init_fusion_module(self):
+        num_channels = 256
+        self.fusion_module = nn.ModuleDict()
+        for stage in self.stages:
+            self.fusion_module[stage] = nn.Sequential(
+                nn.Conv2d(2 * num_channels, 2 * num_channels, 1),
+                nn.ReLU(),
+                nn.Conv2d(2 * num_channels, 2 * num_channels, 1),
+                nn.ReLU(),
+                nn.Conv2d(2 * num_channels, num_channels, 1),
+                nn.ReLU()
+            )
+        # self.memory_feats = nn.Parameter(torch.Tensor(requires_grad = False))
 
     def init_bbox_head(self, bbox_roi_extractor, bbox_head):
         """Initialize box head and box roi extractor.
@@ -137,7 +152,8 @@ class TCTRoIHead(CascadeRoIHead):
                 else:
                     cur_normal_bbox_feats = normal_bbox_feats[i]
                 cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
-                cur_bbox_feats = 2 * cur_bbox_feats - cur_normal_bbox_feats
+                cur_bbox_feats = torch.cat([cur_bbox_feats, cur_normal_bbox_feats], dim = 1)
+                cur_bbox_feats = self.fusion_module[stage](cur_bbox_feats)
                 feats.append(cur_bbox_feats)
         bbox_feats = torch.cat(feats)
         # do not support caffe_c4 model anymore
