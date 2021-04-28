@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import random
 
 from mmdet.core import bbox2result, bbox2roi, bbox_mapping, build_assigner, build_sampler, merge_aug_bboxes, merge_aug_masks, multiclass_nms
 from ..builder import HEADS, build_head, build_roi_extractor
@@ -12,7 +13,7 @@ class TCTRoIHead(CascadeRoIHead):
     """RoI head for TCT RCNN.
     """
 
-    def __init__(self, num_classes, stage_loss_weights, train_cfg, *args, **kwargs):
+    def __init__(self, num_classes, stage_loss_weights, train_cfg, num_memory = 10, *args, **kwargs):
         self.stages = ['single', 'multi', 'tct']
         if stage_loss_weights is None or stage_loss_weights == {} or self.stages[0] not in self.stages:
             stage_loss_weights = {}
@@ -30,6 +31,8 @@ class TCTRoIHead(CascadeRoIHead):
         super(TCTRoIHead, self).__init__(num_stages = len(self.stages), stage_loss_weights = stage_loss_weights, train_cfg = train_cfg,
                                          *args, **kwargs)
         self.num_classes = num_classes
+        self.memory_bank = []
+        self.num_memory = num_memory
 
     def init_bbox_head(self, bbox_roi_extractor, bbox_head):
         """Initialize box head and box roi extractor.
@@ -38,20 +41,14 @@ class TCTRoIHead(CascadeRoIHead):
             bbox_roi_extractor (dict): Config of box roi extractor.
             bbox_head (dict): Config of box in box head.
         """
-        self.bbox_roi_extractor = nn.ModuleDict()
+        self.bbox_roi_extractor = build_roi_extractor(bbox_roi_extractor)
         self.bbox_head = nn.ModuleDict()
-        if not isinstance(bbox_roi_extractor, dict) or self.stages[0] not in bbox_roi_extractor:
-            bbox_roi_extractor = {stage: bbox_roi_extractor for stage in self.stages}
-        else:
-            for stage in self.stages:
-                assert stage in bbox_roi_extractor, f'can not find stage {stage} in bbox_roi_extractor'
         if not isinstance(bbox_head, dict) or self.stages[0] not in bbox_head:
             bbox_head = {stage: bbox_head for stage in self.stages}
         else:
             for stage in self.stages:
                 assert stage in bbox_head, f'can not find stage {stage} in bbox_head'
         for stage in self.stages:
-            self.bbox_roi_extractor[stage] = build_roi_extractor(bbox_roi_extractor[stage])
             self.bbox_head[stage] = build_head(bbox_head[stage])
 
     def init_assigner_sampler(self):
@@ -72,17 +69,78 @@ class TCTRoIHead(CascadeRoIHead):
         """
         if self.with_shared_head:
             self.shared_head.init_weights(pretrained = pretrained)
-        for stage in self.stages:
-            if self.with_bbox:
-                self.bbox_roi_extractor[stage].init_weights()
+        if self.with_bbox:
+            self.bbox_roi_extractor.init_weights()
+            for stage in self.stages:
                 self.bbox_head[stage].init_weights()
 
-    def _bbox_forward(self, stage, x, rois):
+    def get_memory(self, tensor = None, device = torch.device('cpu'), dtype = torch.float32):
+        if self.memory_bank:
+            return random.choice(self.memory_bank)
+        else:
+            out_channels = self.bbox_roi_extractor.out_channels
+            out_size = self.bbox_roi_extractor.roi_layers[0].output_size
+            if tensor is not None:
+                return torch.zeros(out_channels, *out_size, device = tensor.device, dtype = tensor.dtype)
+            else:
+                return torch.zeros(out_channels, *out_size, device = device, dtype = dtype)
+
+    def update_memory(self, feats):
+        if self.num_memory <= len(feats):
+            inds = random.sample(range(len(feats)), self.num_memory)
+            self.memory_bank = [feats[ind].clone().detach() for ind in inds]
+        else:
+            self.memory_bank = self.memory_bank[len(feats) - self.num_memory:] + [feat.clone().detach() for feat in feats]
+
+    def forward_dummy(self, x, proposals):
+        """Dummy forward function."""
+        # bbox head
+        outs = ()
+        rois = bbox2roi([proposals])
+        if self.with_bbox:
+            for stage in self.stages:
+                bbox_results = self._bbox_forward(stage, x, rois)
+                outs = outs + (bbox_results['cls_score'],
+                               bbox_results['bbox_pred'])
+        return outs
+
+    def _normal_forward(self, x, det_bboxes):
+        # build normal_bbox_feats
+        normal_rois = bbox2roi(det_bboxes)
+        normal_bbox_feats = self.bbox_roi_extractor(x[:self.bbox_roi_extractor.num_inputs], normal_rois)
+        if len(normal_bbox_feats):
+            self.update_memory(normal_bbox_feats)
+            bbox_feats = []
+            for i in range(len(det_bboxes)):
+                cur_bbox_feats = normal_bbox_feats[normal_rois[:, 0] == i]
+                if len(cur_bbox_feats):
+                    bbox_feats.append(random.choice(cur_bbox_feats))
+                else:
+                    bbox_feats.append(None)
+        else:
+            bbox_feats = None
+
+        return bbox_feats
+
+    def _bbox_forward(self, stage, x, rois, normal_bbox_feats = None):
         """Box head forward function used in both training and testing."""
-        bbox_roi_extractor = self.bbox_roi_extractor[stage]
+        bbox_roi_extractor = self.bbox_roi_extractor
         bbox_head = self.bbox_head[stage]
-        bbox_feats = bbox_roi_extractor(x[:bbox_roi_extractor.num_inputs],
-                                        rois)
+        bbox_feats = bbox_roi_extractor(x[:bbox_roi_extractor.num_inputs], rois)
+        feats = []
+        inds = rois[:, 0].unique()
+        for i in inds:
+            i = int(i)
+            cur_bbox_feats = bbox_feats[rois[:, 0] == i]
+            if len(cur_bbox_feats):
+                if normal_bbox_feats is None or normal_bbox_feats[i] is None:
+                    cur_normal_bbox_feats = self.get_memory(cur_bbox_feats[0])
+                else:
+                    cur_normal_bbox_feats = normal_bbox_feats[i]
+                cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
+                cur_bbox_feats = 2 * cur_bbox_feats - cur_normal_bbox_feats
+                feats.append(cur_bbox_feats)
+        bbox_feats = torch.cat(feats)
         # do not support caffe_c4 model anymore
         if isinstance(bbox_head, ConvFCRelationBBoxHead):
             cls_score, bbox_pred = bbox_head(bbox_feats, rois)
@@ -93,6 +151,21 @@ class TCTRoIHead(CascadeRoIHead):
             cls_score = cls_score, bbox_pred = bbox_pred, bbox_feats = bbox_feats)
         return bbox_results
 
+    def _bbox_forward_train(self, stage, x, sampling_results, gt_bboxes,
+                            gt_labels, rcnn_train_cfg, normal_bbox_feats = None):
+        """Run forward function and calculate loss for box head in training."""
+        rois = bbox2roi([res.bboxes for res in sampling_results])
+        bbox_results = self._bbox_forward(stage, x, rois, normal_bbox_feats)
+        bbox_targets = self.bbox_head[stage].get_targets(
+            sampling_results, gt_bboxes, gt_labels, rcnn_train_cfg)
+        loss_bbox = self.bbox_head[stage].loss(bbox_results['cls_score'],
+                                               bbox_results['bbox_pred'], rois,
+                                               *bbox_targets)
+
+        bbox_results.update(
+            loss_bbox = loss_bbox, rois = rois, bbox_targets = bbox_targets)
+        return bbox_results
+
     def forward_train(self,
                       x,
                       img_metas,
@@ -101,6 +174,7 @@ class TCTRoIHead(CascadeRoIHead):
                       gt_labels,
                       gt_bboxes_ignore = None,
                       gt_masks = None,
+                      det_bboxes = None,
                       **kwargs):
         """
         Args:
@@ -124,6 +198,9 @@ class TCTRoIHead(CascadeRoIHead):
         """
         losses = dict()
         final_proposal_list = []
+        normal_bbox_feats = self._normal_forward(x, det_bboxes)
+
+        # head inference
         for stage in self.stages:
             lw = self.stage_loss_weights[stage]
 
@@ -156,7 +233,8 @@ class TCTRoIHead(CascadeRoIHead):
                     sampling_results.append(sampling_result)
 
                 # bbox head forward and loss
-                bbox_results = self._bbox_forward_train(stage, x, sampling_results, cur_gt_bboxes, cur_gt_labels, self.train_cfg[stage])
+                bbox_results = self._bbox_forward_train(stage, x, sampling_results, cur_gt_bboxes, cur_gt_labels, self.train_cfg[stage],
+                                                        normal_bbox_feats)
 
                 for name, value in bbox_results['loss_bbox'].items():
                     losses[f'{stage}_{name}'] = (
@@ -187,7 +265,7 @@ class TCTRoIHead(CascadeRoIHead):
 
         return losses
 
-    def simple_test(self, x, proposal_list, img_metas, rescale = False):
+    def simple_test(self, x, proposal_list, img_metas, det_bboxes, rescale = False):
         """Test without augmentation."""
         assert self.with_bbox, 'Bbox head must be implemented.'
         num_imgs = len(proposal_list)
@@ -202,6 +280,7 @@ class TCTRoIHead(CascadeRoIHead):
         rcnn_test_cfg = self.test_cfg
 
         final_proposal_list = []
+        normal_bbox_feats = self._normal_forward(x, det_bboxes)
         for stage in self.stages:
             if stage == self.stages[-1]:
                 cur_rois = torch.cat(final_proposal_list)
@@ -212,7 +291,7 @@ class TCTRoIHead(CascadeRoIHead):
                 cur_rois = torch.cat(proposal_list)
             else:
                 cur_rois = bbox2roi(proposal_list)
-            bbox_results = self._bbox_forward(stage, x, cur_rois)
+            bbox_results = self._bbox_forward(stage, x, cur_rois, normal_bbox_feats)
 
             # split batch bbox prediction back to each image
             cls_score = bbox_results['cls_score']
