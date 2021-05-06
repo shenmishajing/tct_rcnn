@@ -127,22 +127,22 @@ class TCTRoIHead(CascadeRoIHead):
         bbox_roi_extractor = self.bbox_roi_extractor
         bbox_head = self.bbox_head[stage]
         bbox_feats = bbox_roi_extractor(x[:bbox_roi_extractor.num_inputs], rois)
-        delta_feat = []
-        inds = rois[:, 0].unique()
-        for i in inds:
-            i = int(i)
-            cur_bbox_feats = bbox_feats[rois[:, 0] == i]
-            if len(cur_bbox_feats):
-                if normal_bbox_feats is None or normal_bbox_feats[i] is None:
-                    cur_normal_bbox_feats = self.get_memory(cur_bbox_feats[0])
-                else:
-                    cur_normal_bbox_feats = normal_bbox_feats[i]
-                cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
-                delta_bbox_feats = cur_bbox_feats - cur_normal_bbox_feats
-                delta_feat.append(delta_bbox_feats)
-        delta_feats = torch.cat(delta_feat)
         # do not support caffe_c4 model anymore
         if isinstance(bbox_head, ConvFCRelationBBoxHead):
+            delta_feat = []
+            inds = rois[:, 0].unique()
+            for i in inds:
+                i = int(i)
+                cur_bbox_feats = bbox_feats[rois[:, 0] == i]
+                if len(cur_bbox_feats):
+                    if normal_bbox_feats is None or normal_bbox_feats[i] is None:
+                        cur_normal_bbox_feats = self.get_memory(cur_bbox_feats[0])
+                    else:
+                        cur_normal_bbox_feats = normal_bbox_feats[i]
+                    cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
+                    delta_bbox_feats = cur_bbox_feats - cur_normal_bbox_feats
+                    delta_feat.append(delta_bbox_feats)
+            delta_feats = torch.cat(delta_feat)
             cls_score, bbox_pred = bbox_head(bbox_feats, delta_feats, rois)
         else:
             cls_score, bbox_pred = bbox_head(bbox_feats)
