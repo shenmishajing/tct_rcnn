@@ -27,6 +27,7 @@ class ConvFCRelationBBoxHead(Shared2FCBBoxHead):
         part_len = self.fc_out_channels // self.num_relation_parts
         self.relation_matrix = nn.Parameter(torch.Tensor(self.num_relation_parts, part_len, part_len))
         self.softmax = nn.Softmax(dim = -1)
+        self.delta_fc = nn.Linear(self.in_channels * self.roi_feat_area, self.fc_out_channels)
 
     def init_weights(self):
         super(ConvFCRelationBBoxHead, self).init_weights()
@@ -42,7 +43,7 @@ class ConvFCRelationBBoxHead(Shared2FCBBoxHead):
         relation_feature = relation_feature.permute(1, 0, 2)
         return relation_feature.reshape(relation_feature.shape[0], -1)
 
-    def forward(self, x, rois = None):
+    def forward(self, x, delta_feats = None, rois = None):
         # shared part
         if self.num_shared_convs > 0:
             for conv in self.shared_convs:
@@ -56,12 +57,16 @@ class ConvFCRelationBBoxHead(Shared2FCBBoxHead):
 
             x = self.relu(self.shared_fcs[0](x))
 
+            delta_feats = delta_feats.flatten(1)
+
+            delta_feats = self.relu(self.delta_fc(delta_feats))
+
             if rois is None:
                 x = self._relation_forwards(x)
             else:
                 x_list = []
                 for i in rois[:, 0].unique():
-                    x_list.append(self._relation_forwards(x[rois[:, 0] == i]))
+                    x_list.append(self._relation_forwards(x[rois[:, 0] == i]) + delta_feats[rois[:, 0] == i])
                 x = torch.cat(x_list)
 
             for fc in self.shared_fcs[1:]:

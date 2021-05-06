@@ -3,6 +3,7 @@ _base_ = [
     '../_base_/datasets/tct_detection.py',
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
+optimizer = dict(lr = 0.005)
 
 custom_hooks = []
 
