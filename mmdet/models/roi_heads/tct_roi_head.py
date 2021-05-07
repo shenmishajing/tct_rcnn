@@ -114,7 +114,7 @@ class TCTRoIHead(CascadeRoIHead):
             for i in range(len(det_bboxes)):
                 cur_bbox_feats = normal_bbox_feats[normal_rois[:, 0] == i]
                 if len(cur_bbox_feats):
-                    bbox_feats.append(random.choice(cur_bbox_feats).clone().detach())
+                    bbox_feats.append(random.choice(cur_bbox_feats))
                 else:
                     bbox_feats.append(None)
         else:
