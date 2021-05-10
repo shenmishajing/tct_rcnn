@@ -86,9 +86,9 @@ class TCTDataset(CocoDataset):
         # processing pipeline
         self.pipeline = Compose(pipeline)
 
-    def __len__(self):
-        """Total number of samples of data."""
-        return 4
+    # def __len__(self):
+    #     """Total number of samples of data."""
+    #     return 4
 
     def load_annotations(self, ann_file):
         """Load annotation from COCO style annotation file.
