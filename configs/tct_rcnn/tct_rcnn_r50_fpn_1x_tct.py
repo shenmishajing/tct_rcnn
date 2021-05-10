@@ -4,6 +4,7 @@ _base_ = [
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
 
+optimizer = dict(lr = 0.005)
 custom_hooks = []
 
 log_config = dict(

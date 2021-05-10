@@ -288,6 +288,8 @@ class TCTRoIHead(CascadeRoIHead):
                     scale_factors[i],
                     rescale = rescale,
                     cfg = rcnn_test_cfg)
+                if cur_det_bbox.shape[1] == 4:
+                    cur_det_bbox = torch.cat([cur_det_bbox, torch.zeros_like(cur_det_label)[:, None]], dim = -1)
                 det_bbox.append(cur_det_bbox)
                 det_label.append(cur_det_label)
             det_bboxes.append(torch.cat(det_bbox))
