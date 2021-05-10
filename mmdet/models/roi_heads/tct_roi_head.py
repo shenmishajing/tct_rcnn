@@ -13,7 +13,7 @@ class TCTRoIHead(CascadeRoIHead):
     """
 
     def __init__(self, num_classes, stage_loss_weights, train_cfg, num_memory = 10, *args, **kwargs):
-        self.stages = ['single', 'multi', 'tct']
+        self.stages = ['single', 'multi']
         if stage_loss_weights is None or stage_loss_weights == {} or self.stages[0] not in self.stages:
             stage_loss_weights = {}
             for stage in self.stages:
@@ -193,7 +193,6 @@ class TCTRoIHead(CascadeRoIHead):
             dict[str, Tensor]: a dictionary of loss components
         """
         losses = dict()
-        final_proposal_list = []
         normal_bbox_feats = self._normal_forward(x, det_bboxes)
 
         # head inference
@@ -208,19 +207,12 @@ class TCTRoIHead(CascadeRoIHead):
                 num_imgs = len(img_metas)
                 if gt_bboxes_ignore is None:
                     gt_bboxes_ignore = [None for _ in range(num_imgs)]
-
-                if stage == self.stages[-1]:
-                    cur_proposal_list = [torch.cat([proposal[j] for proposal in final_proposal_list]) for j in range(num_imgs)]
-                    cur_gt_bboxes = gt_bboxes
-                    cur_gt_labels = gt_labels
-                    cur_gt_bboxes_ignore = gt_bboxes_ignore
-                else:
-                    cur_proposal_list = proposal_list
-                    cur_gt_bboxes = kwargs[stage]['gt_bboxes']
-                    cur_gt_labels = kwargs[stage]['gt_labels']
-                    cur_gt_bboxes_ignore = kwargs[stage].get('gt_bboxes_ignore', None)
-                    if cur_gt_bboxes_ignore is None:
-                        cur_gt_bboxes_ignore = [None for _ in range(num_imgs)]
+                cur_proposal_list = proposal_list
+                cur_gt_bboxes = kwargs[stage]['gt_bboxes']
+                cur_gt_labels = kwargs[stage]['gt_labels']
+                cur_gt_bboxes_ignore = kwargs[stage].get('gt_bboxes_ignore', None)
+                if cur_gt_bboxes_ignore is None:
+                    cur_gt_bboxes_ignore = [None for _ in range(num_imgs)]
 
                 for j in range(num_imgs):
                     assign_result = bbox_assigner.assign(cur_proposal_list[j], cur_gt_bboxes[j], cur_gt_bboxes_ignore[j], cur_gt_labels[j])
@@ -245,20 +237,6 @@ class TCTRoIHead(CascadeRoIHead):
                     losses[f'{stage}_{name}'] = (
                         value * lw if 'loss' in name else value)
 
-            # refine bboxes
-            if stage != self.stages[-1]:
-                pos_is_gts = [res.pos_is_gt for res in sampling_results]
-                # bbox_targets is a tuple
-                roi_labels = bbox_results['bbox_targets'][0]
-                with torch.no_grad():
-                    roi_labels = torch.where(
-                        roi_labels == self.bbox_head[stage].num_classes,
-                        bbox_results['cls_score'][:, :-1].argmax(1),
-                        roi_labels)
-                    final_proposal_list.append(
-                        self.bbox_head[stage].refine_bboxes(bbox_results['rois'], roi_labels, bbox_results['bbox_pred'],
-                                                            pos_is_gts, img_metas))
-
         return losses
 
     def simple_test(self, x, proposal_list, img_metas, det_bboxes, rescale = False):
@@ -273,20 +251,12 @@ class TCTRoIHead(CascadeRoIHead):
         ms_bbox_result = {}
         ms_segm_result = {}
         ms_scores = []
+        ms_preds = []
         rcnn_test_cfg = self.test_cfg
 
-        final_proposal_list = []
         normal_bbox_feats = self._normal_forward(x, det_bboxes)
         for stage in self.stages:
-            if stage == self.stages[-1]:
-                cur_rois = torch.cat(final_proposal_list)
-                proposal_list = []
-                for i in range(len(img_metas)):
-                    cur_inds = cur_rois[:, 0] == i
-                    proposal_list.append(cur_rois[cur_inds])
-                cur_rois = torch.cat(proposal_list)
-            else:
-                cur_rois = bbox2roi(proposal_list)
+            cur_rois = bbox2roi(proposal_list)
             bbox_results = self._bbox_forward(stage, x, cur_rois, normal_bbox_feats)
 
             # split batch bbox prediction back to each image
@@ -302,33 +272,32 @@ class TCTRoIHead(CascadeRoIHead):
                 bbox_pred = self.bbox_head[stage].bbox_pred_split(
                     bbox_pred, num_proposals_per_img)
             ms_scores.append(cls_score)
-
-            if stage != self.stages[-1]:
-                bbox_label = [s[:, :-1].argmax(dim = 1) for s in cls_score]
-                final_proposal_list.append(torch.cat([
-                    self.bbox_head[stage].regress_by_class(cur_rois[j], bbox_label[j], bbox_pred[j], img_metas[j]) for j in range(num_imgs)
-                ]))
+            ms_preds.append(bbox_pred)
 
         # apply bbox post-processing to each image individually
         det_bboxes = []
         det_labels = []
         for i in range(num_imgs):
-            det_bbox, det_label = self.bbox_head[self.stages[-1]].get_bboxes(
-                cur_rois[i],
-                cls_score[i],
-                bbox_pred[i],
-                img_shapes[i],
-                scale_factors[i],
-                rescale = rescale,
-                cfg = rcnn_test_cfg)
-            det_bboxes.append(det_bbox)
-            det_labels.append(det_label)
+            det_bbox, det_label = [], []
+            for s, stage in enumerate(self.stages):
+                cur_det_bbox, cur_det_label = self.bbox_head[stage].get_bboxes(
+                    cur_rois[i],
+                    ms_scores[s][i],
+                    ms_preds[s][i],
+                    img_shapes[i],
+                    scale_factors[i],
+                    rescale = rescale,
+                    cfg = rcnn_test_cfg)
+                det_bbox.append(cur_det_bbox)
+                det_label.append(cur_det_label)
+            det_bboxes.append(torch.cat(det_bbox))
+            det_labels.append(torch.cat(det_label))
 
         if torch.onnx.is_in_onnx_export():
             return det_bboxes, det_labels
         bbox_results = [
             bbox2result(det_bboxes[i], det_labels[i],
-                        self.bbox_head[self.stages[-1]].num_classes)
+                        self.bbox_head[self.stages[0]].num_classes)
             for i in range(num_imgs)
         ]
         ms_bbox_result['ensemble'] = bbox_results

@@ -104,9 +104,8 @@ model = dict(
             type = 'TCTRoIHead',
             num_classes = 5,
             stage_loss_weights = dict(
-                tct = 1.0,
-                single = 0.5,
-                multi = 0.5),
+                single = 1.0,
+                multi = 1.0),
             bbox_roi_extractor = dict(
                 type = 'SingleRoIExtractor',
                 roi_layer = dict(type = 'RoIAlign', output_size = 7, sampling_ratio = 0),
