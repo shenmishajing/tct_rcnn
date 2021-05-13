@@ -53,13 +53,12 @@ class TCTClassificationDataset(CocoDataset):
             self.proposals = None
 
         # filter images too small and containing no annotations
-        if not test_mode:
-            valid_inds = self._filter_imgs(self.filter_min_size)
-            self.data_infos = [self.data_infos[i] for i in valid_inds]
-            if self.proposals is not None:
-                self.proposals = [self.proposals[i] for i in valid_inds]
-            # set group flag for the sampler
-            self._set_group_flag()
+        valid_inds = self._filter_imgs(self.filter_min_size)
+        self.data_infos = [self.data_infos[i] for i in valid_inds]
+        if self.proposals is not None:
+            self.proposals = [self.proposals[i] for i in valid_inds]
+        # set group flag for the sampler
+        self._set_group_flag()
 
         # processing pipeline
         self.pipeline = Compose(pipeline)
@@ -120,19 +119,13 @@ class TCTClassificationDataset(CocoDataset):
         return [ann_info['category_id']]
 
     def _filter_imgs(self, min_size = 32):
-        """Filter images too small or without ground truths."""
+        """Filter ann of too small image or not with correct category."""
         valid_inds = []
-        # obtain images that contain annotations of the required categories
-        ids_in_cat = set()
-        for class_id in self.cat_ids:
-            ids_in_cat |= set(self.coco.cat_img_map[class_id])
-
         for i, ann_info in enumerate(self.data_infos):
+            if ann_info['category_id'] not in self.cat_ids:
+                continue
             ann_id = self.ann_ids[i]
             img_info = self.ann_id_to_img[ann_id]
-            img_id = img_info['id']
-            if self.filter_empty_gt and img_id not in ids_in_cat:
-                continue
             if min(img_info['width'], img_info['height']) >= min_size:
                 valid_inds.append(i)
         return valid_inds
