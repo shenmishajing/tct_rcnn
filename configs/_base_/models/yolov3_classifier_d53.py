@@ -2,10 +2,12 @@
 model = dict(
     type = 'YOLOV3Classifier',
     pretrained = 'open-mmlab://darknet53',
-    classifier = dict(
-        model = dict(pretrained = True),
-        size = (299, 299),
-    ),
+    # hard_labels = list(range(4)),
+    # classifier = dict(
+    #     model = dict(
+    #         pretrained = True,
+    #         num_classes = 4),
+    #     size = (299, 299)),
     backbone = dict(type = 'Darknet', depth = 53, out_indices = (3, 4, 5)),
     neck = dict(
         type = 'YOLOV3Neck',

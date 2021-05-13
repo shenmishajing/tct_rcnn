@@ -5,10 +5,7 @@ _base_ = [
 ]
 
 # model settings
-model = dict(
-    hard_labels = list(range(4)),
-    classifier = dict(model = dict(num_classes = 4)),
-    bbox_head = dict(num_classes = 5))
+model = dict(bbox_head = dict(num_classes = 5))
 
 log_config = dict(
     hooks = [
@@ -16,5 +13,5 @@ log_config = dict(
         dict(type = 'WandbLoggerHook',
              with_step = False,
              init_kwargs = dict(project = 'tct',
-                                name = 'yolov3_d53_273e_tct',
+                                name = 'yolov3_classifier_d53_273e_tct',
                                 tags = ['mmdetection', 'tct', 'yolov3', 'd53', '273e']))])

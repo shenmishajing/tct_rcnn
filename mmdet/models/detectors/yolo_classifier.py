@@ -1,67 +1,11 @@
-import logging
-
 import torch
-import torch.nn as nn
 import torchvision.transforms.functional as F
-from torchvision.models.inception import Inception3
-from torchvision.models.utils import load_state_dict_from_url
 
 from mmdet.core import bbox2result
 from mmdet.core.bbox import bbox_xyxy_to_lxtywh
-from mmcv.runner import load_checkpoint
 from ..builder import DETECTORS
 from .single_stage import SingleStageDetector
-
-model_urls = {
-    # Inception v3 ported from TensorFlow
-    'inception_v3_google': 'https://download.pytorch.org/models/inception_v3_google-1a9a5a14.pth',
-}
-
-
-def inception_v3(pretrained = False, progress = True, **kwargs):
-    r"""Inception v3 model architecture from
-    `"Rethinking the Inception Architecture for Computer Vision" <http://arxiv.org/abs/1512.00567>`_.
-
-    .. note::
-        **Important**: In contrast to the other models the inception_v3 expects tensors with a size of
-        N x 3 x 299 x 299, so ensure your images are sized accordingly.
-
-    Args:
-        pretrained (bool or str): If True, returns a model pre-trained on ImageNet.
-            If str, returns a model as weight file specified by str
-        progress (bool): If True, displays a progress bar of the download to stderr
-        aux_logits (bool): If True, add an auxiliary branch that can improve training.
-            Default: *True*
-        transform_input (bool): If True, preprocesses the input according to the method with which it
-            was trained on ImageNet. Default: *False*
-    """
-    if pretrained:
-        if 'transform_input' not in kwargs:
-            kwargs['transform_input'] = True
-        if 'aux_logits' in kwargs:
-            original_aux_logits = kwargs['aux_logits']
-            kwargs['aux_logits'] = True
-        else:
-            original_aux_logits = True
-        kwargs['init_weights'] = False  # we are loading weights from a pretrained model
-        model = Inception3(**kwargs)
-        if isinstance(pretrained, str):
-            logger = logging.getLogger()
-            load_checkpoint(model, pretrained, strict = False, logger = logger)
-        else:
-            state_dict = load_state_dict_from_url(model_urls['inception_v3_google'],
-                                                  progress = progress)
-            cur_state_dict = model.state_dict()
-            for key in list(state_dict):
-                if key not in cur_state_dict or state_dict[key].shape != cur_state_dict[key].shape:
-                    del state_dict[key]
-            model.load_state_dict(state_dict, strict = False)
-        if not original_aux_logits:
-            model.aux_logits = False
-            del model.AuxLogits
-        return model
-
-    return Inception3(**kwargs)
+from .inceptionv3 import inception_v3
 
 
 @DETECTORS.register_module()
@@ -71,8 +15,8 @@ class YOLOV3Classifier(SingleStageDetector):
                  backbone,
                  neck,
                  bbox_head,
-                 hard_labels,
                  classifier = None,
+                 hard_labels = None,
                  train_cfg = None,
                  test_cfg = None,
                  pretrained = None):
@@ -81,13 +25,13 @@ class YOLOV3Classifier(SingleStageDetector):
         if classifier is not None:
             self.classifier = inception_v3(**classifier.pop('model'))
             self.classifier_cfg = classifier
-        self.hard_labels = hard_labels
-        self.hard_label_to_id = {label: i for i, label in enumerate(hard_labels)}
+            self.hard_labels = hard_labels
+            self.hard_label_to_id = {label: i for i, label in enumerate(hard_labels)}
 
     @property
     def with_classifier(self):
         """bool: whether the detector has a classifier"""
-        return hasattr(self, 'classifier') and self.classifier is not None
+        return hasattr(self, 'classifier') and self.classifier is not None and hasattr(self, 'hard_labels') and self.hard_labels is not None
 
     def simple_test(self, img, img_metas, rescale = False):
         """Test function without test time augmentation.
@@ -113,7 +57,7 @@ class YOLOV3Classifier(SingleStageDetector):
         bbox_list = self.bbox_head.get_bboxes(
             *outs, img_metas, rescale = rescale)
 
-        if self.classifier:
+        if self.with_classifier:
             for det_bboxes, det_labels in bbox_list:
                 inds = torch.zeros_like(det_labels) > 0
                 for label in self.hard_labels:

@@ -106,7 +106,7 @@ class TCTDataset(CocoDataset):
         self.img_ids = self.coco[self.part].get_img_ids()
         data_infos = []
         for i in self.img_ids:
-            info = self.coco[self.part].load_imgs([i])[0]
+            info = self.coco[self.part].load_imgs(i)[0]
             if 'filename' not in info:
                 info['filename'] = info['file_name']
             data_infos.append(info)
