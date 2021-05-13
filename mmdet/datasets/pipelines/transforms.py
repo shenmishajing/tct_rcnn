@@ -818,7 +818,9 @@ class GroundTruthCrop(object):
             dict: Randomly cropped results, 'img_shape' key in result dict is
                 updated according to crop size.
         """
-        bbox = results['ann_info']['bboxes']
+        if 'gt_bboxes' not in results:
+            return None
+        bbox = results['gt_bboxes']
         if len(bbox) <= 0:
             return None
         else:
