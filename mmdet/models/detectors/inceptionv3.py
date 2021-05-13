@@ -126,7 +126,7 @@ class InceptionV3(BaseDetector):
 
     def aug_test(self, imgs, img_metas, **kwargs):
         """Test function with test time augmentation."""
-        pass
+        raise NotImplementedError
 
     def show_result(self, **kwargs):
         pass
