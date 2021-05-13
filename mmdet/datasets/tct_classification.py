@@ -19,6 +19,7 @@ class TCTClassificationDataset(CocoDataset):
                  seg_prefix = None,
                  proposal_file = None,
                  test_mode = False,
+                 debug_len = None,
                  filter_min_size = 32,
                  filter_empty_gt = True):
         self.ann_file = ann_file
@@ -27,6 +28,7 @@ class TCTClassificationDataset(CocoDataset):
         self.seg_prefix = seg_prefix
         self.proposal_file = proposal_file
         self.test_mode = test_mode
+        self.debug_len = debug_len
         self.filter_empty_gt = filter_empty_gt
         self.filter_min_size = filter_min_size
 
@@ -62,9 +64,12 @@ class TCTClassificationDataset(CocoDataset):
         # processing pipeline
         self.pipeline = Compose(pipeline)
 
-    # def __len__(self):
-    #     """Total number of samples of data."""
-    #     return 4
+    def __len__(self):
+        """Total number of samples of data."""
+        if self.debug_len is not None:
+            return self.debug_len
+        else:
+            return super(TCTClassificationDataset, self).__len__()
 
     def load_annotations(self, ann_file):
         """Load annotation from COCO style annotation file.

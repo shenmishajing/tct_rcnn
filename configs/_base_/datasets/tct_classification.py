@@ -17,6 +17,7 @@ train_pipeline = [
 ]
 test_pipeline = [
     dict(type = 'LoadImageFromFile'),
+    dict(type = 'LoadAnnotations', with_bbox = True),
     dict(
         type = 'MultiScaleFlipAug',
         img_scale = (1333, 800),
@@ -39,18 +40,21 @@ data = dict(
         type = dataset_type,
         ann_file = data_root + 'annotations/train.json',
         img_prefix = data_root + 'train2017/',
+        debug_len = None,
         filter_min_size = filter_min_size,
         pipeline = train_pipeline),
     val = dict(
         type = dataset_type,
         ann_file = data_root + 'annotations/val.json',
         img_prefix = data_root + 'val2017/',
+        debug_len = None,
         filter_min_size = filter_min_size,
         pipeline = test_pipeline),
     test = dict(
         type = dataset_type,
         ann_file = data_root + 'annotations/test.json',
         img_prefix = data_root + 'val2017/',
+        debug_len = None,
         filter_min_size = filter_min_size,
         pipeline = test_pipeline))
 evaluation = dict(interval = 1, rule = 'greater', save_best = 'acc')
