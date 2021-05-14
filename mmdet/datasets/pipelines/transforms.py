@@ -772,6 +772,10 @@ class RandomCrop(object):
 class GroundTruthCrop(object):
     """Crop the first ground truth of the image.
 
+    Args:
+        bbox_clip_border (bool, optional): Whether clip the objects outside
+            the border of the image. Defaults to True.
+
     Note:
         - If the image is smaller than the absolute crop size, return the
             original image.
@@ -779,9 +783,20 @@ class GroundTruthCrop(object):
           `gt_bboxes` corresponds to `gt_labels` and `gt_masks`, and
           `gt_bboxes_ignore` corresponds to `gt_labels_ignore` and
           `gt_masks_ignore`.
-        - If the crop does not contain any gt-bbox region and
-          `allow_negative_crop` is set to False, skip this image.
     """
+
+    def __init__(self,
+                 bbox_clip_border = True):
+        self.bbox_clip_border = bbox_clip_border
+        # The key correspondence from bboxes to labels and masks.
+        self.bbox2label = {
+            'gt_bboxes': 'gt_labels',
+            'gt_bboxes_ignore': 'gt_labels_ignore'
+        }
+        self.bbox2mask = {
+            'gt_bboxes': 'gt_masks',
+            'gt_bboxes_ignore': 'gt_masks_ignore'
+        }
 
     def _crop_data(self, results, crop_bbox):
         """Function to randomly crop images, bounding boxes, masks, semantic
@@ -795,16 +810,48 @@ class GroundTruthCrop(object):
             dict: cropped results, 'img_shape' key in result dict is
                 updated according to crop size.
         """
+        crop_x1, crop_y1, crop_x2, crop_y2 = crop_bbox
         for key in results.get('img_fields', ['img']):
             img = results[key]
 
             # crop the image
-            img = img[crop_bbox[1]:crop_bbox[3], crop_bbox[0]:crop_bbox[2], ...]
+            img = img[crop_y1:crop_y2, crop_x1:crop_x2, ...]
             if img.size <= 0:
                 return None
             img_shape = img.shape
             results[key] = img
         results['img_shape'] = img_shape
+
+        # crop bboxes accordingly and clip to the image boundary
+        bbox_offset = np.array([crop_x1, crop_y1, crop_x1, crop_y1], dtype = np.float32)
+        for key in results.get('bbox_fields', []):
+            # e.g. gt_bboxes and gt_bboxes_ignore
+            bboxes = results[key] - bbox_offset
+            if self.bbox_clip_border:
+                bboxes[:, 0::2] = np.clip(bboxes[:, 0::2], 0, img_shape[1])
+                bboxes[:, 1::2] = np.clip(bboxes[:, 1::2], 0, img_shape[0])
+            valid_inds = (bboxes[:, 2] > bboxes[:, 0]) & (bboxes[:, 3] > bboxes[:, 1])
+            # If the crop does not contain any gt-bbox area and
+            # allow_negative_crop is False, skip this image.
+            if key == 'gt_bboxes' and not valid_inds.any():
+                return None
+            results[key] = bboxes[valid_inds, :]
+            # label fields. e.g. gt_labels and gt_labels_ignore
+            label_key = self.bbox2label.get(key)
+            if label_key in results:
+                results[label_key] = results[label_key][valid_inds]
+
+            # mask fields, e.g. gt_masks and gt_masks_ignore
+            mask_key = self.bbox2mask.get(key)
+            if mask_key in results:
+                results[mask_key] = results[mask_key][
+                    valid_inds.nonzero()[0]].crop(
+                    np.asarray([crop_x1, crop_y1, crop_x2, crop_y2]))
+
+        # crop semantic seg
+        for key in results.get('seg_fields', []):
+            results[key] = results[key][crop_y1:crop_y2, crop_x1:crop_x2]
+
         return results
 
     def __call__(self, results):
@@ -830,7 +877,8 @@ class GroundTruthCrop(object):
         return results
 
     def __repr__(self):
-        repr_str = self.__class__.__name__ + '()'
+        repr_str = self.__class__.__name__
+        repr_str += f'(bbox_clip_border={self.bbox_clip_border})'
         return repr_str
 
 
