@@ -1,8 +1,11 @@
 import itertools
+import json
 import logging
+import os
 import os.path as osp
 from collections import OrderedDict
 
+import random
 import numpy as np
 from mmcv.utils import print_log
 from terminaltables import AsciiTable
@@ -25,7 +28,10 @@ class TCTDataset(CocoDataset):
     def __init__(self,
                  ann_file,
                  pipeline,
+                 ref_pipeline,
                  part = 'tct',
+                 split = 'train',
+                 references = None,
                  data_root = None,
                  img_prefix = '',
                  seg_prefix = None,
@@ -36,7 +42,9 @@ class TCTDataset(CocoDataset):
                  filter_empty_gt = True):
         self.parts = OrderedDict(tct = '', single = '_single', multi = '_multi', normal = '_normal', all = '_all')
         self.part = part
-        self.ann_file = {part: ann_file + self.parts[part] + '.json' for part in self.parts}
+        self.split = split
+        self.references = references
+        self.ann_file = {part: osp.join(ann_file, self.split + self.parts[part] + '.json') for part in self.parts}
         self.data_root = data_root
         self.img_prefix = img_prefix
         self.seg_prefix = seg_prefix
@@ -76,6 +84,32 @@ class TCTDataset(CocoDataset):
         else:
             self.proposals = None
 
+        if isinstance(self.references, str) and not osp.exists(self.references):
+            print_log(f'references file {self.references} not exists, set it to 150', logger = None, level = logging.WARNING)
+            self.references = 150
+
+        if isinstance(self.references, int):
+            references = {}
+            for cat_id in self.cat_ids[self.part]:
+                label = self.cat2label[self.part][cat_id]
+                ann_ids = list(self.coco[self.part].get_ann_ids(cat_ids = cat_id))
+                if self.references > len(ann_ids):
+                    ref_ids = random.choices(ann_ids, k = self.references)
+                else:
+                    ref_ids = random.sample(ann_ids, self.references)
+                references[label] = ref_ids
+            self.references = references
+            references_output_path = osp.join(osp.dirname(self.ann_file[self.part]), 'references')
+            if not osp.exists(references_output_path):
+                os.makedirs(references_output_path)
+            json.dump(self.references, open(osp.join(references_output_path, self.split + self.parts[self.part] + '_references.json'), 'w'))
+        elif isinstance(self.references, str):
+            if osp.exists(self.references):
+                self.references = json.load(open(self.references))
+            else:
+                print_log(f'references file {self.references} not exists, ignore it', logger = None, level = logging.WARNING)
+                self.references = None
+
         # filter images too small and containing no annotations
         if not test_mode:
             valid_inds = self._filter_imgs(self.filter_min_size)
@@ -87,6 +121,7 @@ class TCTDataset(CocoDataset):
 
         # processing pipeline
         self.pipeline = Compose(pipeline)
+        self.ref_pipeline = Compose(ref_pipeline)
 
     def __len__(self):
         """Total number of samples of data."""
@@ -248,6 +283,22 @@ class TCTDataset(CocoDataset):
             if part == self.part:
                 res.update(results)
             res[part] = results
+        if self.references is not None:
+            res['ref'] = {}
+            for cat_id in self.references:
+                label = self.cat2label[self.part][cat_id]
+                res['ref'][label] = []
+                for ref_id in self.references[cat_id]:
+                    ref_ann = self.coco[self.part].load_anns(ref_id)[0]
+                    ref_img_id = ref_ann['image_id']
+                    ref_img = self.coco[self.part].load_imgs(ref_img_id)[0]
+                    ref_ann = self._parse_ann_info(ref_img, [ref_ann], self.part)
+                    results = dict(img_info = ref_img, ann_info = ref_ann)
+                    if self.proposals is not None:
+                        results['proposals'] = self.proposals[idx]
+                    self.pre_pipeline(results)
+                    results = self.ref_pipeline(results)
+                    res['ref'][label].append(results)
         return res
 
     def prepare_test_img(self, idx):
