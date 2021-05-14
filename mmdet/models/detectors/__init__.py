@@ -29,6 +29,7 @@ from .two_stage import TwoStageDetector
 from .vfnet import VFNet
 from .yolact import YOLACT
 from .yolo import YOLOV3
+from .yolo_classifier import YOLOV3Classifier
 
 __all__ = [
     'ATSS', 'BaseDetector', 'SingleStageDetector',
@@ -36,6 +37,6 @@ __all__ = [
     'FastRCNN', 'FasterRCNN', 'MaskRCNN', 'CascadeRCNN', 'HybridTaskCascade',
     'RetinaNet', 'FCOS', 'GridRCNN', 'MaskScoringRCNN', 'RepPointsDetector',
     'FOVEA', 'FSAF', 'NASFCOS', 'PointRend', 'GFL', 'CornerNet', 'PAA',
-    'YOLOV3', 'YOLACT', 'VFNet', 'DETR', 'TridentFasterRCNN', 'SparseRCNN',
+    'YOLOV3', 'YOLOV3Classifier', 'YOLACT', 'VFNet', 'DETR', 'TridentFasterRCNN', 'SparseRCNN',
     'SCNet', 'TCTRCNN'
 ]
