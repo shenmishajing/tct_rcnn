@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 
-def bbox_flip(bboxes, img_shape, direction='horizontal'):
+def bbox_flip(bboxes, img_shape, direction = 'horizontal'):
     """Flip bboxes horizontally or vertically.
 
     Args:
@@ -35,7 +35,7 @@ def bbox_mapping(bboxes,
                  img_shape,
                  scale_factor,
                  flip,
-                 flip_direction='horizontal'):
+                 flip_direction = 'horizontal'):
     """Map bboxes from the original image scale to testing scale."""
     new_bboxes = bboxes * bboxes.new_tensor(scale_factor)
     if flip:
@@ -47,7 +47,7 @@ def bbox_mapping_back(bboxes,
                       img_shape,
                       scale_factor,
                       flip,
-                      flip_direction='horizontal'):
+                      flip_direction = 'horizontal'):
     """Map bboxes from testing scale to original image scale."""
     new_bboxes = bbox_flip(bboxes, img_shape,
                            flip_direction) if flip else bboxes
@@ -69,7 +69,7 @@ def bbox2roi(bbox_list):
     for img_id, bboxes in enumerate(bbox_list):
         if bboxes.size(0) > 0:
             img_inds = bboxes.new_full((bboxes.size(0), 1), img_id)
-            rois = torch.cat([img_inds, bboxes[:, :4]], dim=-1)
+            rois = torch.cat([img_inds, bboxes[:, :4]], dim = -1)
         else:
             rois = bboxes.new_zeros((0, 5))
         rois_list.append(rois)
@@ -88,7 +88,7 @@ def roi2bbox(rois):
         list[torch.Tensor]: Converted boxes of corresponding rois.
     """
     bbox_list = []
-    img_ids = torch.unique(rois[:, 0].cpu(), sorted=True)
+    img_ids = torch.unique(rois[:, 0].cpu(), sorted = True)
     for img_id in img_ids:
         inds = (rois[:, 0] == img_id.item())
         bbox = rois[inds, 1:]
@@ -108,7 +108,7 @@ def bbox2result(bboxes, labels, num_classes):
         list(ndarray): bbox results of each class
     """
     if bboxes.shape[0] == 0:
-        return [np.zeros((0, 5), dtype=np.float32) for i in range(num_classes)]
+        return [np.zeros((0, 5), dtype = np.float32) for i in range(num_classes)]
     else:
         if isinstance(bboxes, torch.Tensor):
             bboxes = bboxes.detach().cpu().numpy()
@@ -116,7 +116,7 @@ def bbox2result(bboxes, labels, num_classes):
         return [bboxes[labels == i, :] for i in range(num_classes)]
 
 
-def distance2bbox(points, distance, max_shape=None):
+def distance2bbox(points, distance, max_shape = None):
     """Decode distance prediction to bounding box.
 
     Args:
@@ -149,14 +149,14 @@ def distance2bbox(points, distance, max_shape=None):
 
         min_xy = x1.new_tensor(0)
         max_xy = torch.cat([max_shape, max_shape],
-                           dim=-1).flip(-1).unsqueeze(-2)
+                           dim = -1).flip(-1).unsqueeze(-2)
         bboxes = torch.where(bboxes < min_xy, min_xy, bboxes)
         bboxes = torch.where(bboxes > max_xy, max_xy, bboxes)
 
     return bboxes
 
 
-def bbox2distance(points, bbox, max_dis=None, eps=0.1):
+def bbox2distance(points, bbox, max_dis = None, eps = 0.1):
     """Decode bounding box based on distances.
 
     Args:
@@ -173,14 +173,14 @@ def bbox2distance(points, bbox, max_dis=None, eps=0.1):
     right = bbox[:, 2] - points[:, 0]
     bottom = bbox[:, 3] - points[:, 1]
     if max_dis is not None:
-        left = left.clamp(min=0, max=max_dis - eps)
-        top = top.clamp(min=0, max=max_dis - eps)
-        right = right.clamp(min=0, max=max_dis - eps)
-        bottom = bottom.clamp(min=0, max=max_dis - eps)
+        left = left.clamp(min = 0, max = max_dis - eps)
+        top = top.clamp(min = 0, max = max_dis - eps)
+        right = right.clamp(min = 0, max = max_dis - eps)
+        bottom = bottom.clamp(min = 0, max = max_dis - eps)
     return torch.stack([left, top, right, bottom], -1)
 
 
-def bbox_rescale(bboxes, scale_factor=1.0):
+def bbox_rescale(bboxes, scale_factor = 1.0):
     """Rescale bounding box w.r.t. scale_factor.
 
     Args:
@@ -206,9 +206,9 @@ def bbox_rescale(bboxes, scale_factor=1.0):
     y1 = cy - 0.5 * h
     y2 = cy + 0.5 * h
     if bboxes.size(1) == 5:
-        rescaled_bboxes = torch.stack([inds_, x1, y1, x2, y2], dim=-1)
+        rescaled_bboxes = torch.stack([inds_, x1, y1, x2, y2], dim = -1)
     else:
-        rescaled_bboxes = torch.stack([x1, y1, x2, y2], dim=-1)
+        rescaled_bboxes = torch.stack([x1, y1, x2, y2], dim = -1)
     return rescaled_bboxes
 
 
@@ -221,9 +221,9 @@ def bbox_cxcywh_to_xyxy(bbox):
     Returns:
         Tensor: Converted bboxes.
     """
-    cx, cy, w, h = bbox.split((1, 1, 1, 1), dim=-1)
+    cx, cy, w, h = bbox.split((1, 1, 1, 1), dim = -1)
     bbox_new = [(cx - 0.5 * w), (cy - 0.5 * h), (cx + 0.5 * w), (cy + 0.5 * h)]
-    return torch.cat(bbox_new, dim=-1)
+    return torch.cat(bbox_new, dim = -1)
 
 
 def bbox_xyxy_to_cxcywh(bbox):
@@ -235,6 +235,20 @@ def bbox_xyxy_to_cxcywh(bbox):
     Returns:
         Tensor: Converted bboxes.
     """
-    x1, y1, x2, y2 = bbox.split((1, 1, 1, 1), dim=-1)
+    x1, y1, x2, y2 = bbox.split((1, 1, 1, 1), dim = -1)
     bbox_new = [(x1 + x2) / 2, (y1 + y2) / 2, (x2 - x1), (y2 - y1)]
-    return torch.cat(bbox_new, dim=-1)
+    return torch.cat(bbox_new, dim = -1)
+
+
+def bbox_xyxy_to_lxtywh(bbox):
+    """Convert bbox coordinates from (x1, y1, x2, y2) to (lx, ty, w, h).
+
+    Args:
+        bbox (Tensor): Shape (n, 4) for bboxes.
+
+    Returns:
+        Tensor: Converted bboxes.
+    """
+    x1, y1, x2, y2 = bbox.split((1, 1, 1, 1), dim = -1)
+    bbox_new = [x1, y1, (x2 - x1), (y2 - y1)]
+    return torch.cat(bbox_new, dim = -1)

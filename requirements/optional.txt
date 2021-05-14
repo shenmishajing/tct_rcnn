@@ -3,3 +3,4 @@ cityscapesscripts
 imagecorruptions
 scipy
 sklearn
+xmltodict
