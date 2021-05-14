@@ -10,6 +10,7 @@ log_config = dict(
     hooks = [
         dict(type = 'TextLoggerHook'),
         dict(type = 'WandbLoggerHook',
+             with_step = False,
              init_kwargs = dict(project = 'tct',
                                 name = 'tct_rcnn_r50_fpn_2x_tct',
                                 tags = ['mmdetection', 'tct', 'tct_rcnn', 'r50', '2x']))])

@@ -5,26 +5,13 @@ from collections import OrderedDict
 
 import numpy as np
 from mmcv.utils import print_log
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
 from terminaltables import AsciiTable
 
-from mmdet.core.evaluation import get_classes
 from mmdet.core import eval_recalls
+from .api_wrappers import COCO, COCOeval
 from .builder import DATASETS
-from .coco import CocoDataset
 from .pipelines import Compose
-
-try:
-    import pycocotools
-
-    if not hasattr(pycocotools, '__sphinx_mock__'):  # for doc generation
-        assert pycocotools.__version__ >= '12.0.2'
-except AssertionError:
-    raise AssertionError('Incompatible version of pycocotools is installed. '
-                         'Run pip uninstall pycocotools first. Then run pip '
-                         'install mmpycocotools to install open-mmlab forked '
-                         'pycocotools.')
+from .coco import CocoDataset
 
 
 @DATASETS.register_module()
@@ -44,6 +31,8 @@ class TCTDataset(CocoDataset):
                  seg_prefix = None,
                  proposal_file = None,
                  test_mode = False,
+                 debug_len = None,
+                 filter_min_size = 32,
                  filter_empty_gt = True):
         self.parts = OrderedDict(tct = '', single = '_single', multi = '_multi', normal = '_normal', all = '_all')
         self.part = part
@@ -53,7 +42,9 @@ class TCTDataset(CocoDataset):
         self.seg_prefix = seg_prefix
         self.proposal_file = proposal_file
         self.test_mode = test_mode
+        self.debug_len = debug_len
         self.filter_empty_gt = filter_empty_gt
+        self.filter_min_size = filter_min_size
         self.classes = {
             'tct': ['ASCH', 'ASCUS', 'HSIL', 'LSIL', 'SQCA'],
             'single': ['ASCH', 'ASCUS', 'HSIL', 'LSIL', 'SQCA'],
@@ -87,7 +78,7 @@ class TCTDataset(CocoDataset):
 
         # filter images too small and containing no annotations
         if not test_mode:
-            valid_inds = self._filter_imgs()
+            valid_inds = self._filter_imgs(self.filter_min_size)
             self.data_infos = [self.data_infos[i] for i in valid_inds]
             if self.proposals is not None:
                 self.proposals = [self.proposals[i] for i in valid_inds]
@@ -97,9 +88,12 @@ class TCTDataset(CocoDataset):
         # processing pipeline
         self.pipeline = Compose(pipeline)
 
-    # def __len__(self):
-    #     """Total number of samples of data."""
-    #     return 4
+    def __len__(self):
+        """Total number of samples of data."""
+        if self.debug_len is not None:
+            return self.debug_len
+        else:
+            return super(TCTDataset, self).__len__()
 
     def load_annotations(self, ann_file):
         """Load annotation from COCO style annotation file.
@@ -117,7 +111,7 @@ class TCTDataset(CocoDataset):
         self.img_ids = self.coco[self.part].get_img_ids()
         data_infos = []
         for i in self.img_ids:
-            info = self.coco[self.part].load_imgs([i])[0]
+            info = self.coco[self.part].load_imgs(i)[0]
             if 'filename' not in info:
                 info['filename'] = info['file_name']
             data_infos.append(info)
