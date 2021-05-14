@@ -875,6 +875,72 @@ class CropGroundTruth(object):
 
 
 @PIPELINES.register_module()
+class GroundTruthCrop(object):
+    """Crop the first ground truth of the image.
+
+    Note:
+        - If the image is smaller than the absolute crop size, return the
+            original image.
+        - The keys for bboxes, labels and masks must be aligned. That is,
+          `gt_bboxes` corresponds to `gt_labels` and `gt_masks`, and
+          `gt_bboxes_ignore` corresponds to `gt_labels_ignore` and
+          `gt_masks_ignore`.
+        - If the crop does not contain any gt-bbox region and
+          `allow_negative_crop` is set to False, skip this image.
+    """
+
+    def _crop_data(self, results, crop_bbox):
+        """Function to randomly crop images, bounding boxes, masks, semantic
+        segmentation maps.
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+            crop_bbox (tuple): Expected absolute size after cropping, (x1, y1, x2, y2).
+
+        Returns:
+            dict: cropped results, 'img_shape' key in result dict is
+                updated according to crop size.
+        """
+        for key in results.get('img_fields', ['img']):
+            img = results[key]
+
+            # crop the image
+            img = img[crop_bbox[1]:crop_bbox[3], crop_bbox[0]:crop_bbox[2], ...]
+            if img.size <= 0:
+                return None
+            img_shape = img.shape
+            results[key] = img
+        results['img_shape'] = img_shape
+        return results
+
+    def __call__(self, results):
+        """Call function to randomly crop images, bounding boxes, masks,
+        semantic segmentation maps.
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Randomly cropped results, 'img_shape' key in result dict is
+                updated according to crop size.
+        """
+        if 'gt_bboxes' not in results:
+            return None
+        bbox = results['gt_bboxes']
+        if len(bbox) <= 0:
+            return None
+        else:
+            bbox = bbox[0]
+        bbox = [int(bbox[0]), int(bbox[1]), int(bbox[2] + 1), int(bbox[3] + 1)]
+        results = self._crop_data(results, bbox)
+        return results
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__ + '()'
+        return repr_str
+
+
+@PIPELINES.register_module()
 class SegRescale(object):
     """Rescale semantic segmentation maps.
 
