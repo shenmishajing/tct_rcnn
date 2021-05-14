@@ -8,11 +8,12 @@ img_norm_cfg = dict(
 ref_pipeline = [
     dict(type = 'LoadImageFromFile'),
     dict(type = 'LoadAnnotations', with_bbox = True),
-    dict(type = 'CropGroundTruth'),
     dict(type = 'Resize', img_scale = (240, 240), keep_ratio = True),
     dict(type = 'RandomFlip', flip_ratio = 0.5),
     dict(type = 'Normalize', **img_norm_cfg),
     dict(type = 'Pad', size_divisor = 32),
+    dict(type = 'GroundTruthCrop'),
+    dict(type = 'Resize', img_scale = (299, 299), keep_ratio = False, override = True),
     dict(type = 'DefaultFormatBundle'),
     dict(type = 'Collect', keys = ['img', 'gt_bboxes', 'gt_labels']),
 ]
