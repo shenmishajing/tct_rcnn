@@ -84,9 +84,22 @@ class TCTDataset(CocoDataset):
         else:
             self.proposals = None
 
+        # filter images too small and containing no annotations
+        if not test_mode:
+            valid_inds = self._filter_imgs(self.filter_min_size)
+            self.data_infos = [self.data_infos[i] for i in valid_inds]
+            if self.proposals is not None:
+                self.proposals = [self.proposals[i] for i in valid_inds]
+            # set group flag for the sampler
+            self._set_group_flag()
+
+        # processing pipeline
+        self.pipeline = Compose(pipeline)
+        self.ref_pipeline = Compose(ref_pipeline)
+
         if isinstance(self.references, str) and not osp.exists(self.references):
-            print_log(f'references file {self.references} not exists, set it to 150', logger = None, level = logging.WARNING)
-            self.references = 150
+            print_log(f'references file {self.references} not exists, set it to 3', logger = None, level = logging.WARNING)
+            self.references = 3
 
         if isinstance(self.references, int):
             references = {}
@@ -104,24 +117,22 @@ class TCTDataset(CocoDataset):
                 os.makedirs(references_output_path)
             json.dump(self.references, open(osp.join(references_output_path, self.split + self.parts[self.part] + '_references.json'), 'w'))
         elif isinstance(self.references, str):
-            if osp.exists(self.references):
-                self.references = json.load(open(self.references))
-            else:
-                print_log(f'references file {self.references} not exists, ignore it', logger = None, level = logging.WARNING)
-                self.references = None
+            self.references = json.load(open(self.references))
 
-        # filter images too small and containing no annotations
-        if not test_mode:
-            valid_inds = self._filter_imgs(self.filter_min_size)
-            self.data_infos = [self.data_infos[i] for i in valid_inds]
-            if self.proposals is not None:
-                self.proposals = [self.proposals[i] for i in valid_inds]
-            # set group flag for the sampler
-            self._set_group_flag()
-
-        # processing pipeline
-        self.pipeline = Compose(pipeline)
-        self.ref_pipeline = Compose(ref_pipeline)
+        if self.references is not None:
+            references = self.references
+            self.references = {}
+            for label in references:
+                self.references[label] = []
+                for ref_id in references[label]:
+                    ref_ann = self.coco[self.part].load_anns(ref_id)[0]
+                    ref_img_id = ref_ann['image_id']
+                    ref_img = self.coco[self.part].load_imgs(ref_img_id)[0]
+                    ref_ann = self._parse_ann_info(ref_img, [ref_ann], self.part)
+                    results = dict(img_info = ref_img, ann_info = ref_ann)
+                    self.pre_pipeline(results)
+                    results = self.ref_pipeline(results)
+                    self.references[label].append(results)
 
     def __len__(self):
         """Total number of samples of data."""
@@ -284,21 +295,7 @@ class TCTDataset(CocoDataset):
                 res.update(results)
             res[part] = results
         if self.references is not None:
-            res['ref'] = {}
-            for cat_id in self.references:
-                label = self.cat2label[self.part][cat_id]
-                res['ref'][label] = []
-                for ref_id in self.references[cat_id]:
-                    ref_ann = self.coco[self.part].load_anns(ref_id)[0]
-                    ref_img_id = ref_ann['image_id']
-                    ref_img = self.coco[self.part].load_imgs(ref_img_id)[0]
-                    ref_ann = self._parse_ann_info(ref_img, [ref_ann], self.part)
-                    results = dict(img_info = ref_img, ann_info = ref_ann)
-                    if self.proposals is not None:
-                        results['proposals'] = self.proposals[idx]
-                    self.pre_pipeline(results)
-                    results = self.ref_pipeline(results)
-                    res['ref'][label].append(results)
+            res['references'] = self.references
         return res
 
     def prepare_test_img(self, idx):
@@ -317,7 +314,10 @@ class TCTDataset(CocoDataset):
         if self.proposals is not None:
             results['proposals'] = self.proposals[idx]
         self.pre_pipeline(results)
-        return self.pipeline(results)
+        results = self.pipeline(results)
+        if self.references is not None:
+            results['references'] = self.references
+        return results
 
     def _det2json(self, results):
         """Convert detection results to COCO json style."""
