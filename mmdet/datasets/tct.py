@@ -28,10 +28,10 @@ class TCTDataset(CocoDataset):
     def __init__(self,
                  ann_file,
                  pipeline,
-                 ref_pipeline,
                  part = 'tct',
                  split = 'train',
                  references = None,
+                 ref_pipeline = None,
                  data_root = None,
                  img_prefix = '',
                  seg_prefix = None,
@@ -95,7 +95,8 @@ class TCTDataset(CocoDataset):
 
         # processing pipeline
         self.pipeline = Compose(pipeline)
-        self.ref_pipeline = Compose(ref_pipeline)
+        if ref_pipeline:
+            self.ref_pipeline = Compose(ref_pipeline)
 
         if isinstance(self.references, str) and not osp.exists(self.references):
             print_log(f'references file {self.references} not exists, set it to 3', logger = None, level = logging.WARNING)
