@@ -103,15 +103,14 @@ class TCTDataset(CocoDataset):
             self.references = 3
 
         if isinstance(self.references, int):
-            references = {}
+            references = []
             for cat_id in self.cat_ids[self.part]:
-                label = self.cat2label[self.part][cat_id]
                 ann_ids = list(self.coco[self.part].get_ann_ids(cat_ids = cat_id))
                 if self.references > len(ann_ids):
                     ref_ids = random.choices(ann_ids, k = self.references)
                 else:
                     ref_ids = random.sample(ann_ids, self.references)
-                references[label] = ref_ids
+                references.append(ref_ids)
             self.references = references
             references_output_path = osp.join(osp.dirname(self.ann_file[self.part]), 'references')
             if not osp.exists(references_output_path):
@@ -122,10 +121,10 @@ class TCTDataset(CocoDataset):
 
         if self.references is not None:
             references = self.references
-            self.references = {}
-            for label in references:
-                self.references[label] = []
-                for ref_id in references[label]:
+            self.references = []
+            for ref_ids in references:
+                self.references.append([])
+                for ref_id in ref_ids:
                     ref_ann = self.coco[self.part].load_anns(ref_id)[0]
                     ref_img_id = ref_ann['image_id']
                     ref_img = self.coco[self.part].load_imgs(ref_img_id)[0]
@@ -133,7 +132,7 @@ class TCTDataset(CocoDataset):
                     results = dict(img_info = ref_img, ann_info = ref_ann)
                     self.pre_pipeline(results)
                     results = self.ref_pipeline(results)
-                    self.references[label].append(results)
+                    self.references[-1].append(results)
 
     def __len__(self):
         """Total number of samples of data."""
