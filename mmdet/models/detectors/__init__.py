@@ -1,6 +1,7 @@
 from .atss import ATSS
 from .base import BaseDetector
 from .cascade_rcnn import CascadeRCNN
+from .comparison_detector import ComparisonDetector
 from .cornernet import CornerNet
 from .detr import DETR
 from .fast_rcnn import FastRCNN
@@ -32,7 +33,7 @@ from .yolo import YOLOV3
 from .yolo_classifier import YOLOV3Classifier
 
 __all__ = [
-    'ATSS', 'BaseDetector', 'SingleStageDetector',
+    'ATSS', 'BaseDetector', 'SingleStageDetector', 'ComparisonDetector',
     'KnowledgeDistillationSingleStageDetector', 'TwoStageDetector', 'RPN',
     'FastRCNN', 'FasterRCNN', 'MaskRCNN', 'CascadeRCNN', 'HybridTaskCascade',
     'RetinaNet', 'FCOS', 'GridRCNN', 'MaskScoringRCNN', 'RepPointsDetector',

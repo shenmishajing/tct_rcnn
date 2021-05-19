@@ -10,7 +10,7 @@ ref_pipeline = [
     dict(type = 'Normalize', **img_norm_cfg),
     dict(type = 'Pad', size_divisor = 32),
     dict(type = 'GroundTruthCrop'),
-    dict(type = 'Resize', img_scale = (299, 299), keep_ratio = False, override = True),
+    dict(type = 'Resize', img_scale = (25, 25), keep_ratio = False, override = True),
     dict(type = 'DefaultFormatBundle'),
     dict(type = 'Collect', keys = ['img', 'gt_bboxes', 'gt_labels']),
 ]
