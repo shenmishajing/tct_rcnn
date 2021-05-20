@@ -1,11 +1,11 @@
 _base_ = [
     '../_base_/models/yolov3_d53.py',
-    '../_base_/datasets/tct_yolo_detection.py',
+    '../_base_/datasets/coco_detection.py',
     '../_base_/schedules/schedule_273e.py', '../_base_/default_runtime.py'
 ]
 
 # model settings
-model = dict(bbox_head = dict(num_classes = 5))
+# model = dict(bbox_head = dict(num_classes = 5))
 
 log_config = dict(
     hooks = [
@@ -13,5 +13,5 @@ log_config = dict(
         dict(type = 'WandbLoggerHook',
              with_step = False,
              init_kwargs = dict(project = 'tct',
-                                name = 'yolov3_d53_273e_tct',
-                                tags = ['mmdetection', 'tct', 'yolov3', 'd53', '273e']))])
+                                name = 'yolov3_d53_273e_coco',
+                                tags = ['mmdetection', 'coco', 'yolov3', 'd53', '273e']))])
