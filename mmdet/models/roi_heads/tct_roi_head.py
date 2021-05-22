@@ -189,7 +189,6 @@ class TCTRoIHead(CascadeRoIHead):
     def simple_test(self, x, proposal_list, img_metas, rescale = False):
         """Test without augmentation."""
         assert self.with_bbox, 'Bbox head must be implemented.'
-        num_imgs = len(proposal_list)
         img_shapes = tuple(meta['img_shape'] for meta in img_metas)
         ori_shapes = tuple(meta['ori_shape'] for meta in img_metas)
         scale_factors = tuple(meta['scale_factor'] for meta in img_metas)
@@ -204,23 +203,24 @@ class TCTRoIHead(CascadeRoIHead):
         for stage in self.stages:
             if stage == self.stages[-1]:
                 cur_rois = torch.cat(final_proposal_list)
-                proposal_list = []
+                cur_proposal_list = []
                 for i in range(len(img_metas)):
                     cur_inds = cur_rois[:, 0] == i
-                    proposal_list.append(cur_rois[cur_inds])
-                cur_rois = torch.cat(proposal_list)
+                    cur_proposal_list.append(cur_rois[cur_inds])
+                cur_rois = torch.cat(cur_proposal_list)
             else:
                 if isinstance(proposal_list, dict):
-                    cur_rois = bbox2roi(proposal_list[stage])
+                    cur_proposal_list = proposal_list[stage]
                 else:
-                    cur_rois = bbox2roi(proposal_list)
+                    cur_proposal_list = proposal_list
+                cur_rois = bbox2roi(cur_proposal_list)
+            num_imgs = len(cur_proposal_list)
             bbox_results = self._bbox_forward(stage, x, cur_rois)
 
             # split batch bbox prediction back to each image
             cls_score = bbox_results['cls_score']
             bbox_pred = bbox_results['bbox_pred']
-            num_proposals_per_img = tuple(
-                len(proposals) for proposals in proposal_list)
+            num_proposals_per_img = tuple(len(proposals) for proposals in cur_proposal_list)
             cur_rois = cur_rois.split(num_proposals_per_img, 0)
             cls_score = cls_score.split(num_proposals_per_img, 0)
             if isinstance(bbox_pred, torch.Tensor):
