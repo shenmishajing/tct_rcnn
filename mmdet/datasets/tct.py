@@ -1,8 +1,11 @@
 import itertools
+import json
 import logging
+import os
 import os.path as osp
 from collections import OrderedDict
 
+import random
 import numpy as np
 from mmcv.utils import print_log
 from terminaltables import AsciiTable
@@ -26,6 +29,9 @@ class TCTDataset(CocoDataset):
                  ann_file,
                  pipeline,
                  part = 'tct',
+                 split = 'train',
+                 references = None,
+                 ref_pipeline = None,
                  data_root = None,
                  img_prefix = '',
                  seg_prefix = None,
@@ -36,7 +42,9 @@ class TCTDataset(CocoDataset):
                  filter_empty_gt = True):
         self.parts = OrderedDict(tct = '', single = '_single', multi = '_multi', normal = '_normal', all = '_all')
         self.part = part
-        self.ann_file = {part: ann_file + self.parts[part] + '.json' for part in self.parts}
+        self.split = split
+        self.references = references
+        self.ann_file = {part: osp.join(ann_file, self.split + self.parts[part] + '.json') for part in self.parts}
         self.data_root = data_root
         self.img_prefix = img_prefix
         self.seg_prefix = seg_prefix
@@ -87,6 +95,44 @@ class TCTDataset(CocoDataset):
 
         # processing pipeline
         self.pipeline = Compose(pipeline)
+        if ref_pipeline:
+            self.ref_pipeline = Compose(ref_pipeline)
+
+        if isinstance(self.references, str) and not osp.exists(self.references):
+            print_log(f'references file {self.references} not exists, set it to 3', logger = None, level = logging.WARNING)
+            self.references = 3
+
+        if isinstance(self.references, int):
+            references = []
+            for cat_id in self.cat_ids[self.part]:
+                ann_ids = list(self.coco[self.part].get_ann_ids(cat_ids = cat_id))
+                if self.references > len(ann_ids):
+                    ref_ids = random.choices(ann_ids, k = self.references)
+                else:
+                    ref_ids = random.sample(ann_ids, self.references)
+                references.append(ref_ids)
+            self.references = references
+            references_output_path = osp.join(osp.dirname(self.ann_file[self.part]), 'references')
+            if not osp.exists(references_output_path):
+                os.makedirs(references_output_path)
+            json.dump(self.references, open(osp.join(references_output_path, self.split + self.parts[self.part] + '_references.json'), 'w'))
+        elif isinstance(self.references, str):
+            self.references = json.load(open(self.references))
+
+        if self.references is not None:
+            references = self.references
+            self.references = []
+            for ref_ids in references:
+                self.references.append([])
+                for ref_id in ref_ids:
+                    ref_ann = self.coco[self.part].load_anns(ref_id)[0]
+                    ref_img_id = ref_ann['image_id']
+                    ref_img = self.coco[self.part].load_imgs(ref_img_id)[0]
+                    ref_ann = self._parse_ann_info(ref_img, [ref_ann], self.part)
+                    results = dict(img_info = ref_img, ann_info = ref_ann)
+                    self.pre_pipeline(results)
+                    results = self.ref_pipeline(results)
+                    self.references[-1].append(results)
 
     def __len__(self):
         """Total number of samples of data."""
@@ -248,6 +294,8 @@ class TCTDataset(CocoDataset):
             if part == self.part:
                 res.update(results)
             res[part] = results
+        if self.references is not None:
+            res['references'] = self.references
         return res
 
     def prepare_test_img(self, idx):
@@ -266,7 +314,10 @@ class TCTDataset(CocoDataset):
         if self.proposals is not None:
             results['proposals'] = self.proposals[idx]
         self.pre_pipeline(results)
-        return self.pipeline(results)
+        results = self.pipeline(results)
+        if self.references is not None:
+            results['references'] = self.references
+        return results
 
     def _det2json(self, results):
         """Convert detection results to COCO json style."""
