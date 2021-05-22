@@ -106,7 +106,7 @@ class TCTRoIHead(CascadeRoIHead):
                 'filename', 'ori_shape', 'pad_shape', and 'img_norm_cfg'.
                 For details on the values of these keys see
                 `mmdet/datasets/pipelines/formatting.py:Collect`.
-            proposal_list (list[Tensors]): list of region proposals.
+            proposal_list (list[Tensors] or dict(list[Tensors])): list of region proposals.
             gt_bboxes (list[Tensor]): Ground truth bboxes for each image with
                 shape (num_gts, 4) in [tl_x, tl_y, br_x, br_y] format.
             gt_labels (list[Tensor]): class indices corresponding to each box
@@ -138,7 +138,10 @@ class TCTRoIHead(CascadeRoIHead):
                     cur_gt_labels = gt_labels
                     cur_gt_bboxes_ignore = gt_bboxes_ignore
                 else:
-                    cur_proposal_list = proposal_list
+                    if isinstance(proposal_list, dict):
+                        cur_proposal_list = proposal_list[stage]
+                    else:
+                        cur_proposal_list = proposal_list
                     cur_gt_bboxes = kwargs[stage]['gt_bboxes']
                     cur_gt_labels = kwargs[stage]['gt_labels']
                     cur_gt_bboxes_ignore = kwargs[stage].get('gt_bboxes_ignore', None)
