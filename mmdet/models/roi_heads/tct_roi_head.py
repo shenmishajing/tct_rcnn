@@ -210,7 +210,10 @@ class TCTRoIHead(CascadeRoIHead):
                     proposal_list.append(cur_rois[cur_inds])
                 cur_rois = torch.cat(proposal_list)
             else:
-                cur_rois = bbox2roi(proposal_list)
+                if isinstance(proposal_list, dict):
+                    cur_rois = bbox2roi(proposal_list[stage])
+                else:
+                    cur_rois = bbox2roi(proposal_list)
             bbox_results = self._bbox_forward(stage, x, cur_rois)
 
             # split batch bbox prediction back to each image
