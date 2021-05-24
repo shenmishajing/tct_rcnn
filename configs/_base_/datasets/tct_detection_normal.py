@@ -44,4 +44,4 @@ dist_params = dict(backend = 'nccl')
 log_level = 'INFO'
 load_from = None
 resume_from = None
-workflow = [('train', 1000), ('val', 1000)]
+workflow = [('train', 1)]
