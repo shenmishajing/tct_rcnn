@@ -7,9 +7,6 @@ import shutil
 from collections import defaultdict
 
 import mmcv
-from VOC2COCO import gen_coco
-from tct_class_gen import gen_tct_class_annotations
-from analysis import draw_images
 
 
 def calculate_area(bboxes):
@@ -26,70 +23,81 @@ def calculate_iou(res, gt):
     return inter_area / (res_area[:, None] + gt_area[None, :] - inter_area)
 
 
-def write_anns(results, ann_dir, round = 2, score_thr = 0.5, iou_thr = 0.5, train_files = None):
+def write_anns(prediction_path, ann_dir, round = 2, score_thr = 0.5, iou_thr = 0.5, train_files = None):
     """write anns.
 
     Args:
-        results (list): Det results from test results pkl file
+        prediction_path (str): The dir of round of det results from test results pkl file
         ann_dir (str): The dir of ann files.
-        round (int): The number of round to gen
+        round (int): The number of round to gen.
         score_thr (float, optional): The score threshold for bboxes.
+        iou_thr (float, optional): The iou threshold for bboxes.
+        train_files (Set[str], optional): The train file names.
     """
-    src_path = os.path.join(ann_dir, f'round_{round - 1}')
-    des_path = os.path.join(ann_dir, f'round_{round}')
-    if os.path.exists(des_path):
-        shutil.rmtree(des_path)
-    shutil.copytree(src_path, des_path)
-    for path, dirs, files in os.walk(des_path):
-        if 'train_normal.json' not in files:
+    prediction_path = os.path.join(prediction_path, f'round_{round - 1}')
+    for dir_name in os.listdir(prediction_path):
+        if not os.path.isdir(os.path.join(prediction_path, dir_name)):
             continue
-        anns = json.load(open(osp.join(path, 'train_normal.json')))
-        img_to_anns = defaultdict(lambda: defaultdict(list))
-        for ann in anns['annotations']:
-            img_to_anns[ann['image_id']][ann['category_id']].append(ann['bbox'])
-
-        prog_bar = mmcv.ProgressBar(len(results))
-        for i, result in enumerate(results):
-            img_info = anns['images'][i]
-            assert img_info['id'] == i, 'image id mismatch'
-            if train_files is not None and img_info['filename'][:-4] not in train_files:
+        # relabel xml file
+        result_path = os.path.join(prediction_path, dir_name, 'result.pkl')
+        if not os.path.isfile(result_path):
+            continue
+        results = mmcv.load(result_path)
+        src_path = os.path.join(ann_dir, f'round_{round - 1}', dir_name)
+        des_path = os.path.join(ann_dir, f'round_{round}', dir_name)
+        if os.path.exists(des_path):
+            continue
+        shutil.copytree(src_path, des_path)
+        for path, dirs, files in os.walk(des_path):
+            if 'train_normal.json' not in files:
                 continue
-            for c, res in enumerate(result):
-                res = res[res[:, -1] >= score_thr, :4]
-                gt = np.array(img_to_anns[i][c])
-                if len(gt) > 0:
-                    gt[:, 2] += gt[:, 0]
-                    gt[:, 3] += gt[:, 1]
-                    iou = calculate_iou(res, gt)
-                    iou = np.max(iou, axis = 1)
-                    res = res[iou < iou_thr]
-                if not len(res):
+            anns = json.load(open(osp.join(path, 'train_normal.json')))
+            img_to_anns = defaultdict(lambda: defaultdict(list))
+            for ann in anns['annotations']:
+                img_to_anns[ann['image_id']][ann['category_id']].append(ann['bbox'])
+
+            prog_bar = mmcv.ProgressBar(len(results))
+            for i, result in enumerate(results):
+                img_info = anns['images'][i]
+                assert img_info['id'] == i, 'image id mismatch'
+                if train_files is not None and img_info['filename'][:-4] not in train_files:
                     continue
-                for bbox in res:
-                    bbox = [int(b + 0.5) for b in bbox]
-                    bbox_ann = {}
-                    bbox_ann['segmentation'] = [[bbox[0], bbox[1], bbox[0], bbox[3], bbox[2], bbox[3], bbox[2], bbox[1]]]
-                    bbox_ann['area'] = max(0, bbox[2] - bbox[0]) * max(0, bbox[3] - bbox[1])
-                    bbox_ann['iscrowd'] = 0
-                    bbox_ann['ignore'] = 0
-                    bbox_ann['image_id'] = i
-                    bbox_ann['bbox'] = [bbox[0], bbox[1], max(1, bbox[2] - bbox[0]), max(1, bbox[3] - bbox[1])]
-                    bbox_ann['category_id'] = c
-                    bbox_ann['id'] = len(anns['annotations'])
-                    anns['annotations'].append(bbox_ann)
-            prog_bar.update()
-        json.dump(anns, open(osp.join(path, 'train_normal.json'), 'w'))
+                for c, res in enumerate(result):
+                    res = res[res[:, -1] >= score_thr, :4]
+                    gt = np.array(img_to_anns[i][c])
+                    if len(gt) > 0:
+                        gt[:, 2] += gt[:, 0]
+                        gt[:, 3] += gt[:, 1]
+                        iou = calculate_iou(res, gt)
+                        iou = np.max(iou, axis = 1)
+                        res = res[iou < iou_thr]
+                    if not len(res):
+                        continue
+                    for bbox in res:
+                        bbox = [int(b + 0.5) for b in bbox]
+                        bbox_ann = {}
+                        bbox_ann['segmentation'] = [[bbox[0], bbox[1], bbox[0], bbox[3], bbox[2], bbox[3], bbox[2], bbox[1]]]
+                        bbox_ann['area'] = max(0, bbox[2] - bbox[0]) * max(0, bbox[3] - bbox[1])
+                        bbox_ann['iscrowd'] = 0
+                        bbox_ann['ignore'] = 0
+                        bbox_ann['image_id'] = i
+                        bbox_ann['bbox'] = [bbox[0], bbox[1], max(1, bbox[2] - bbox[0]), max(1, bbox[3] - bbox[1])]
+                        bbox_ann['category_id'] = c
+                        bbox_ann['id'] = len(anns['annotations'])
+                        anns['annotations'].append(bbox_ann)
+                prog_bar.update()
+            json.dump(anns, open(osp.join(path, 'train_normal.json'), 'w'))
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description = 'MMDet eval image prediction result for each')
     parser.add_argument(
-        'prediction_path', help = 'prediction path where test pkl result')
+        'prediction_path', help = 'prediction path where round folder exist')
     parser.add_argument(
         'ann_dir', help = 'directory where the old round of ann saved and new round of ann will be saved')
     parser.add_argument(
-        '--round', type = int, default = 2, help = 'the round of ann files to gen')
+        '--round', type = int, default = None, help = 'the round of ann files to gen')
     parser.add_argument(
         '--score-thr',
         type = float,
@@ -106,33 +114,12 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.round is None:
+        args.round = 5
 
-    # relabel xml file
-    mmcv.check_file_exist(args.prediction_path)
-    outputs = mmcv.load(args.prediction_path)
     train_file_path = '/data/zhengwenhao/Datasets/TCTDataSet/ImageSets/Main/train.txt'
     train_files = set([line.strip() for line in open(train_file_path).readlines()])
-    write_anns(outputs, args.ann_dir, args.round, args.score_thr, args.iou_thr, train_files)
-
-    # remove coco ann files
-    if osp.exists(osp.join(args.ann_dir, 'coco')):
-        shutil.rmtree(osp.join(args.ann_dir, 'coco'))
-        os.mkdir(osp.join(args.ann_dir, 'coco'))
-
-    # gen coco main file
-    gen_coco(args.ann_dir, osp.join(args.ann_dir, 'coco'), osp.join(args.ann_dir, 'obj.names'))
-
-    # gen all coco ann files
-    gen_tct_class_annotations(osp.join(args.ann_dir, 'coco'))
-
-    normal_image_ouput_path = osp.join(args.ann_dir, 'middle_results/outputs/images')
-    # remove normal bboxes images file
-    if osp.exists(normal_image_ouput_path):
-        shutil.rmtree(normal_image_ouput_path)
-        os.makedirs(normal_image_ouput_path)
-
-    # draw normal bboxes
-    draw_images(osp.join(args.ann_dir, 'coco/tct_normal.json'), osp.join(args.ann_dir, 'JPEGImages'), normal_image_ouput_path)
+    write_anns(args.prediction_path, args.ann_dir, args.round, args.score_thr, args.iou_thr, train_files)
 
 
 if __name__ == '__main__':

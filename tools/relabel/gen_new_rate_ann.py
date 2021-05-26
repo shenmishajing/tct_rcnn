@@ -26,9 +26,10 @@ def gen_rate(data_root, folder_name_tmp, rate):
 
 
 def main():
-    data_root = '/home/zhengwenhao/Project/tct/mmdetection/data/tct/Normal_semi_supervision/round_1'
-    rate = [0.01, 0.03, 0.05, 0.1, 0.2, 0.25, 0.5, 0.6, 0.75]
-    folder_name_tmp = 'annotations_{:.2f}'
+    round = 1
+    data_root = f'/home/zhengwenhao/Project/tct/mmdetection/data/tct/Normal_semi_supervision/round_{round}'
+    rate = [0.01, 0.03, 0.05, 0.1, 0.25, 0.5, 0.75]
+    folder_name_tmp = 'rate_{:.2f}'
     for r in rate:
         gen_rate(data_root, folder_name_tmp, r)
 
