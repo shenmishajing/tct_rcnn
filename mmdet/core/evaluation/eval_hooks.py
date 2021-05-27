@@ -48,11 +48,11 @@ class EvalHook(Hook):
 
     def __init__(self,
                  dataloader,
-                 start=None,
-                 interval=1,
-                 by_epoch=True,
-                 save_best=None,
-                 rule=None,
+                 start = None,
+                 interval = 1,
+                 by_epoch = True,
+                 save_best = None,
+                 rule = None,
                  **eval_kwargs):
         if not isinstance(dataloader, DataLoader):
             raise TypeError('dataloader must be a pytorch DataLoader, but got'
@@ -143,7 +143,7 @@ class EvalHook(Hook):
         if not self.by_epoch or not self.evaluation_flag(runner):
             return
         from mmdet.apis import single_gpu_test
-        results = single_gpu_test(runner.model, self.dataloader, show=False)
+        results = single_gpu_test(runner.model, self.dataloader, show = False)
         key_score = self.evaluate(runner, results)
         if self.save_best:
             self.save_best_checkpoint(runner, key_score)
@@ -152,7 +152,7 @@ class EvalHook(Hook):
         if self.by_epoch or not self.every_n_iters(runner, self.interval):
             return
         from mmdet.apis import single_gpu_test
-        results = single_gpu_test(runner.model, self.dataloader, show=False)
+        results = single_gpu_test(runner.model, self.dataloader, show = False)
         key_score = self.evaluate(runner, results)
         if self.save_best:
             self.save_best_checkpoint(runner, key_score)
@@ -160,7 +160,7 @@ class EvalHook(Hook):
     def save_best_checkpoint(self, runner, key_score):
         best_score = runner.meta['hook_msgs'].get(
             'best_score', self.init_value_map[self.rule])
-        if self.compare_func(key_score, best_score):
+        if self.compare_func(key_score, best_score) and 'last_ckpt' in runner.meta['hook_msgs']:
             best_score = key_score
             runner.meta['hook_msgs']['best_score'] = best_score
             last_ckpt = runner.meta['hook_msgs']['last_ckpt']
@@ -174,7 +174,7 @@ class EvalHook(Hook):
 
     def evaluate(self, runner, results):
         eval_res = self.dataloader.dataset.evaluate(
-            results, logger=runner.logger, **self.eval_kwargs)
+            results, logger = runner.logger, **self.eval_kwargs)
         for name, val in eval_res.items():
             runner.log_buffer.output[name] = val
         runner.log_buffer.ready = True
@@ -182,9 +182,9 @@ class EvalHook(Hook):
             if self.key_indicator == 'auto':
                 # infer from eval_results
                 self._init_rule(self.rule, list(eval_res.keys())[0])
-            return eval_res[self.key_indicator]
-        else:
-            return None
+            if self.key_indicator in eval_res:
+                return eval_res[self.key_indicator]
+        return None
 
 
 class DistEvalHook(EvalHook):
@@ -223,22 +223,22 @@ class DistEvalHook(EvalHook):
 
     def __init__(self,
                  dataloader,
-                 start=None,
-                 interval=1,
-                 by_epoch=True,
-                 tmpdir=None,
-                 gpu_collect=False,
-                 save_best=None,
-                 rule=None,
-                 broadcast_bn_buffer=True,
+                 start = None,
+                 interval = 1,
+                 by_epoch = True,
+                 tmpdir = None,
+                 gpu_collect = False,
+                 save_best = None,
+                 rule = None,
+                 broadcast_bn_buffer = True,
                  **eval_kwargs):
         super().__init__(
             dataloader,
-            start=start,
-            interval=interval,
-            by_epoch=by_epoch,
-            save_best=save_best,
-            rule=rule,
+            start = start,
+            interval = interval,
+            by_epoch = by_epoch,
+            save_best = save_best,
+            rule = rule,
             **eval_kwargs)
         self.broadcast_bn_buffer = broadcast_bn_buffer
         self.tmpdir = tmpdir
@@ -272,8 +272,8 @@ class DistEvalHook(EvalHook):
         results = multi_gpu_test(
             runner.model,
             self.dataloader,
-            tmpdir=tmpdir,
-            gpu_collect=self.gpu_collect)
+            tmpdir = tmpdir,
+            gpu_collect = self.gpu_collect)
         if runner.rank == 0:
             print('\n')
             key_score = self.evaluate(runner, results)
@@ -294,8 +294,8 @@ class DistEvalHook(EvalHook):
         results = multi_gpu_test(
             runner.model,
             self.dataloader,
-            tmpdir=tmpdir,
-            gpu_collect=self.gpu_collect)
+            tmpdir = tmpdir,
+            gpu_collect = self.gpu_collect)
         if runner.rank == 0:
             print('\n')
             key_score = self.evaluate(runner, results)
