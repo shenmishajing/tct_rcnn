@@ -6,11 +6,14 @@ from rich.console import Console
 from rich.table import Table
 
 
-def static_numbers():
+def main():
     console = Console()
-    for part in ['tct', 'train', 'val', 'test']:
-        print(part)
-        json_path = f'coco/{part}_all.json'
+    round = 1
+    data_root = '/home/zhengwenhao/Project/tct/mmdetection/data/tct/Normal_semi_supervision'
+    for rate in [0.01, 0.03, 0.05, 0.1, 0.25, 0.5, 0.75, 1]:
+        print(rate)
+        cur_data_root = os.path.join(data_root, 'round_{}/annotations_{:.2f}'.format(round, rate))
+        json_path = os.path.join(cur_data_root, 'train_normal.json')
         anns = json.load(open(json_path))
         category_dict = defaultdict(list)
         category_name_dict = {c['id']: c['name'] if 'multi' not in c['name'] else c['name'][:-6] for c in anns['categories']}
@@ -25,28 +28,6 @@ def static_numbers():
             table.add_row(str(name), str(len(category_dict[name])), str(len(set(category_dict[name]))))
 
         console.print(table)
-
-
-def main():
-    data_dir = "/data/zhengwenhao/Datasets/TCTDataSet"
-    json_path = os.path.join(data_dir, 'coco/tct_all.json')
-    anns = json.load(open(json_path))
-    category_dict = defaultdict(list)
-    category_name_dict = {c['id']: c['name'] if 'multi' not in c['name'] else c['name'][:-6] for c in anns['categories']}
-    for ann in anns['annotations']:
-        category_dict[category_name_dict[ann['category_id']]].append(ann['image_id'])
-    tct_images = set()
-    for category in category_dict:
-        if category == 'NORMAL':
-            continue
-        tct_images |= set(category_dict[category])
-    all_images = set(img['id'] for img in anns['images'])
-    normal_image = all_images - tct_images
-    normal_annotations = {i: [] for i in normal_image}
-    for ann in anns['annotations']:
-        if ann['image_id'] in normal_annotations:
-            normal_annotations[ann['image_id']].append(ann)
-    print(normal_annotations)
 
 
 if __name__ == '__main__':

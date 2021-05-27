@@ -160,7 +160,7 @@ class EvalHook(Hook):
     def save_best_checkpoint(self, runner, key_score):
         best_score = runner.meta['hook_msgs'].get(
             'best_score', self.init_value_map[self.rule])
-        if self.compare_func(key_score, best_score):
+        if self.compare_func(key_score, best_score) and 'last_ckpt' in runner.meta['hook_msgs']:
             best_score = key_score
             runner.meta['hook_msgs']['best_score'] = best_score
             last_ckpt = runner.meta['hook_msgs']['last_ckpt']
