@@ -16,9 +16,11 @@ class TCTRCNN(TwoStageDetector):
                  roi_head = None,
                  train_cfg = None,
                  test_cfg = None,
-                 pretrained = None):
-        super(TwoStageDetector, self).__init__()
+                 pretrained = None,
+                 init_cfg = None):
+        super(TwoStageDetector, self).__init__(init_cfg)
         self.stages = ['single', 'multi']
+        backbone.pretrained = pretrained
         self.backbone = build_backbone(backbone)
 
         if neck is not None:
@@ -44,29 +46,6 @@ class TCTRCNN(TwoStageDetector):
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-
-        self.init_weights(pretrained = pretrained)
-
-    def init_weights(self, pretrained = None):
-        """Initialize the weights in detector.
-
-        Args:
-            pretrained (str, optional): Path to pre-trained weights.
-                Defaults to None.
-        """
-        super(TwoStageDetector, self).init_weights(pretrained)
-        self.backbone.init_weights(pretrained = pretrained)
-        if self.with_neck:
-            if isinstance(self.neck, nn.Sequential):
-                for m in self.neck:
-                    m.init_weights()
-            else:
-                self.neck.init_weights()
-        if self.with_rpn:
-            for stage in self.stages:
-                self.rpn_head[stage].init_weights()
-        if self.with_roi_head:
-            self.roi_head.init_weights(pretrained)
 
     def forward_dummy(self, img):
         """Used for computing network flops.
