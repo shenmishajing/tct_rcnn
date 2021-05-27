@@ -25,6 +25,15 @@ class TCTRCNN(TwoStageDetector):
                  test_cfg = None,
                  pretrained = None,
                  init_cfg = None):
+        super(TCTRCNN, self).__init__(
+            backbone = backbone,
+            neck = neck,
+            rpn_head = rpn_head,
+            roi_head = roi_head,
+            train_cfg = train_cfg,
+            test_cfg = test_cfg,
+            pretrained = pretrained,
+            init_cfg = init_cfg)
         super(TwoStageDetector, self).__init__(init_cfg)
         self.stages = ['normal', 'abnormal']
         self.part = part
