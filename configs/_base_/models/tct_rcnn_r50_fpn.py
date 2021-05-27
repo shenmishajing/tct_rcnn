@@ -103,6 +103,7 @@ model = dict(
         abnormal = dict(
             type = 'TCTRoIHead',
             num_classes = 5,
+            num_memory = 10,
             stage_loss_weights = dict(
                 tct = 1.0,
                 single = 0.5,
