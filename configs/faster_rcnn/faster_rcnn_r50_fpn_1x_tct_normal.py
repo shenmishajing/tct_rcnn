@@ -1,12 +1,9 @@
 _base_ = [
     '../_base_/models/faster_rcnn_r50_fpn.py',
-    '../_base_/datasets/tct_detection_normal.py',
-    '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
+    '../_base_/datasets/tct_detection_normal.py'
 ]
-
-model = dict(
-    rpn_head = dict(loss_bbox = dict(type = 'L1Loss', loss_weight = 30.0)),
-    roi_head = dict(bbox_head = dict(num_classes = 1)))
+model = dict(roi_head = dict(bbox_head = dict(num_classes = 1)))
+optimizer = dict(lr = 0.005)
 
 log_config = dict(
     hooks = [

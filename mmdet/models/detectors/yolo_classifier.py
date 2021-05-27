@@ -19,9 +19,10 @@ class YOLOV3Classifier(SingleStageDetector):
                  hard_labels = None,
                  train_cfg = None,
                  test_cfg = None,
-                 pretrained = None):
+                 pretrained = None,
+                 init_cfg = None):
         super(YOLOV3Classifier, self).__init__(backbone, neck, bbox_head, train_cfg,
-                                               test_cfg, pretrained)
+                                               test_cfg, pretrained, init_cfg)
         if classifier is not None:
             self.classifier = inception_v3(**classifier.pop('model'))
             self.classifier_cfg = classifier
@@ -87,26 +88,4 @@ class YOLOV3Classifier(SingleStageDetector):
         return bbox_results
 
     def aug_test(self, imgs, img_metas, rescale = False):
-        """Test function with test time augmentation.
-
-        Args:
-            imgs (list[Tensor]): the outer list indicates test-time
-                augmentations and inner Tensor should have a shape NxCxHxW,
-                which contains all images in the batch.
-            img_metas (list[list[dict]]): the outer list indicates test-time
-                augs (multiscale, flip, etc.) and the inner list indicates
-                images in a batch. each dict has image information.
-            rescale (bool, optional): Whether to rescale the results.
-                Defaults to False.
-
-        Returns:
-            list[list[np.ndarray]]: BBox results of each image and classes.
-                The outer list corresponds to each image. The inner list
-                corresponds to each class.
-        """
-        assert hasattr(self.bbox_head, 'aug_test'), \
-            f'{self.bbox_head.__class__.__name__}' \
-            ' does not support test-time augmentation'
-
-        feats = self.extract_feats(imgs)
-        return [self.bbox_head.aug_test(feats, img_metas, rescale = rescale)]
+        raise NotImplementedError
