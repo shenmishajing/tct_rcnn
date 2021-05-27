@@ -57,22 +57,9 @@ class TCTRoIHead(CascadeRoIHead):
         self.bbox_sampler = dict()
         if self.train_cfg is not None:
             for stage in self.stages:
-                self.bbox_assigner[stage] = build_assigner(self.train_cfg[stage].assigner)
-                self.bbox_sampler[stage] = build_sampler(self.train_cfg[stage].sampler)
-
-    def init_weights(self, pretrained):
-        """Initialize the weights in head.
-
-        Args:
-            pretrained (str, optional): Path to pre-trained weights.
-                Defaults to None.
-        """
-        if self.with_shared_head:
-            self.shared_head.init_weights(pretrained = pretrained)
-        if self.with_bbox:
-            self.bbox_roi_extractor.init_weights()
-            for stage in self.stages:
-                self.bbox_head[stage].init_weights()
+                if self.train_cfg[stage] is not None:
+                    self.bbox_assigner[stage] = build_assigner(self.train_cfg[stage].assigner)
+                    self.bbox_sampler[stage] = build_sampler(self.train_cfg[stage].sampler)
 
     def get_memory(self, tensor = None, device = torch.device('cpu'), dtype = torch.float32):
         if self.memory_bank:

@@ -1,6 +1,6 @@
 _base_ = [
     '../_base_/models/yolov3_d53.py',
-    '../_base_/datasets/tct_detection.py',
+    '../_base_/datasets/tct_yolo_detection.py',
     '../_base_/schedules/schedule_273e.py', '../_base_/default_runtime.py'
 ]
 

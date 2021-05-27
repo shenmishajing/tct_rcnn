@@ -1,7 +1,11 @@
 from .atss import ATSS
+from .autoassign import AutoAssign
 from .base import BaseDetector
 from .cascade_rcnn import CascadeRCNN
+from .comparison_detector import ComparisonDetector
+from .centernet import CenterNet
 from .cornernet import CornerNet
+from .deformable_detr import DeformableDETR
 from .detr import DETR
 from .fast_rcnn import FastRCNN
 from .faster_rcnn import FasterRCNN
@@ -29,14 +33,15 @@ from .two_stage import TwoStageDetector
 from .vfnet import VFNet
 from .yolact import YOLACT
 from .yolo import YOLOV3
+from .yolof import YOLOF
 from .yolo_classifier import YOLOV3Classifier
 
 __all__ = [
-    'ATSS', 'BaseDetector', 'SingleStageDetector',
+    'ATSS', 'BaseDetector', 'SingleStageDetector', 'ComparisonDetector',
     'KnowledgeDistillationSingleStageDetector', 'TwoStageDetector', 'RPN',
     'FastRCNN', 'FasterRCNN', 'MaskRCNN', 'CascadeRCNN', 'HybridTaskCascade',
     'RetinaNet', 'FCOS', 'GridRCNN', 'MaskScoringRCNN', 'RepPointsDetector',
     'FOVEA', 'FSAF', 'NASFCOS', 'PointRend', 'GFL', 'CornerNet', 'PAA',
     'YOLOV3', 'YOLOV3Classifier', 'YOLACT', 'VFNet', 'DETR', 'TridentFasterRCNN', 'SparseRCNN',
-    'SCNet', 'TCTRCNN'
+    'SCNet', 'TCTRCNN', 'DeformableDETR', 'AutoAssign', 'YOLOF', 'CenterNet'
 ]

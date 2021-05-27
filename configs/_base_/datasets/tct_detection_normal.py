@@ -1,13 +1,7 @@
-_base_ = 'tct_detection.py'
+_base_ = './tct_detection.py'
+# dataset
 part = 'normal'
-min_size = 16
 data = dict(
-    train = dict(
-        part = part,
-        min_size = min_size),
-    val = dict(
-        part = part,
-        min_size = min_size),
-    test = dict(
-        part = part,
-        min_size = min_size))
+    train = dict(part = part),
+    val = dict(part = part),
+    test = dict(part = part))
