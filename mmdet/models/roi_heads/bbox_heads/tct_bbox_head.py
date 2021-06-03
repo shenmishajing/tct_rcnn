@@ -17,6 +17,10 @@ class TCTBBoxHead(ConvFCBBoxHead):
                                                     \-> reg convs -> reg fcs -> reg
     """  # noqa: W605
 
+    def __init__(self, *args, **kwargs):
+        super(TCTBBoxHead, self).__init__(*args, **kwargs)
+        self.fusion_module = nn.Linear(self.fc_out_channels * 2, self.fc_out_channels)
+
     def forward(self, x, normal_feats = None, rois = None):
         # shared part
         if self.num_shared_convs > 0:
@@ -28,7 +32,7 @@ class TCTBBoxHead(ConvFCBBoxHead):
                 x = self.avg_pool(x)
 
             x = self.relu(self.shared_fcs[0](x.flatten(1)))
-            x = 2 * x - normal_feats
+            x = self.fusion_module(torch.cat([x, normal_feats], dim = 1))
 
             for fc in self.shared_fcs[1:]:
                 x = self.relu(fc(x))
