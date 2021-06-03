@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 
 from mmdet.models.builder import HEADS
-from .convfc_bbox_head import Shared2FCBBoxHead
+from .convfc_bbox_head import ConvFCBBoxHead
 
 
 @HEADS.register_module()
-class TCTBBoxHead(Shared2FCBBoxHead):
+class TCTBBoxHead(ConvFCBBoxHead):
     r"""More general bbox head, with shared conv and fc layers and relation module
      and two optional separated branches.
 
