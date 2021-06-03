@@ -17,6 +17,31 @@ class TCTBBoxHead(Shared2FCBBoxHead):
                                                     \-> reg convs -> reg fcs -> reg
     """  # noqa: W605
 
+    def __init__(self,
+                 num_relation_parts = 1,
+                 *args,
+                 **kwargs):
+        super(TCTBBoxHead, self).__init__(*args, **kwargs)
+        self.num_relation_parts = num_relation_parts
+        assert self.fc_out_channels % self.num_relation_parts == 0, 'fc_out_channels must be divisible by num_relation_parts'
+        part_len = self.fc_out_channels // self.num_relation_parts
+        self.relation_matrix = nn.Parameter(torch.Tensor(self.num_relation_parts, part_len, part_len))
+        self.softmax = nn.Softmax(dim = -1)
+
+    def init_weights(self):
+        super(TCTBBoxHead, self).init_weights()
+        nn.init.xavier_uniform_(self.relation_matrix)
+
+    def _relation_forwards(self, x):
+        x = x.reshape(x.shape[0], self.num_relation_parts, -1)
+        x = x.permute(1, 0, 2)
+        encoding_feat = x.bmm(self.relation_matrix)
+        relation_weight = encoding_feat.bmm(encoding_feat.permute(0, 2, 1))
+        relation_weight = self.softmax(relation_weight)
+        relation_feature = relation_weight.bmm(x)
+        relation_feature = relation_feature.permute(1, 0, 2)
+        return relation_feature.reshape(relation_feature.shape[0], -1)
+
     def forward(self, x, delta_feats = None, rois = None):
         # shared part
         if self.num_shared_convs > 0:
@@ -27,7 +52,15 @@ class TCTBBoxHead(Shared2FCBBoxHead):
             if self.with_avg_pool:
                 x = self.avg_pool(x)
 
-            x = self.relu(self.shared_fcs[0](x.flatten(1))) + delta_feats
+            x = self.relu(self.shared_fcs[0](x.flatten(1)))
+
+            if rois is None:
+                x = x + self._relation_forwards(x) + delta_feats
+            else:
+                x_list = []
+                for i in rois[:, 0].unique():
+                    x_list.append(x[rois[:, 0] == i] + self._relation_forwards(x[rois[:, 0] == i]) + delta_feats[rois[:, 0] == i])
+                x = torch.cat(x_list)
 
             for fc in self.shared_fcs[1:]:
                 x = self.relu(fc(x))
