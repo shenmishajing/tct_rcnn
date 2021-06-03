@@ -144,7 +144,7 @@ model = dict(
                     loss_bbox = dict(type = 'L1Loss', loss_weight = 1.0)),
                 tct = dict(
                     type = 'TCTBBoxHead',
-                    num_shared_fcs = 0,
+                    num_shared_fcs = 2,
                     in_channels = 256,
                     fc_out_channels = 1024,
                     roi_feat_size = 7,
