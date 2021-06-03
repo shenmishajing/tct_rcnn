@@ -32,7 +32,7 @@ class TCTRoIHead(CascadeRoIHead):
                                          *args, **kwargs)
         self.num_classes = num_classes
         self.memory_bank = []
-        self.shared_fusion_fcs = shared_fcs
+        self.shared_fcs = shared_fcs
         self.num_memory = num_memory
         self.init_module(shared_fcs)
 
