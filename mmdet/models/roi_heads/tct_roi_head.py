@@ -134,7 +134,7 @@ class TCTRoIHead(CascadeRoIHead):
                     else:
                         cur_normal_bbox_feats = normal_bbox_feats[i]
                     cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
-                    cur_normal_bbox_feats = self.relu(self.normal_fc(cur_normal_bbox_feats))
+                    cur_normal_bbox_feats = self.relu(self.normal_fc(cur_normal_bbox_feats.flatten(1)))
                     normal_feats.append(cur_normal_bbox_feats)
             normal_feats = torch.cat(normal_feats)
             cls_score, bbox_pred = bbox_head(bbox_feats, normal_feats, rois)
