@@ -12,9 +12,9 @@ class TCTBBoxHead(Shared2FCBBoxHead):
 
     .. code-block:: none
 
-                                                    /-> cls convs -> cls fcs -> cls
-        shared convs -> fc -> add delta feats -> fc
-                                                    \-> reg convs -> reg fcs -> reg
+                                                                        /-> cls convs -> cls fcs -> cls
+        shared convs -> fc -> add relation feats and delta feats -> fc
+                                                                        \-> reg convs -> reg fcs -> reg
     """  # noqa: W605
 
     def __init__(self,
