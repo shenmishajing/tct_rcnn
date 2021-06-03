@@ -5,6 +5,7 @@ import random
 from mmdet.core import bbox2result, bbox2roi, bbox_mapping, build_assigner, build_sampler, merge_aug_bboxes, merge_aug_masks, multiclass_nms
 from ..builder import HEADS, build_head, build_roi_extractor
 from .cascade_roi_head import CascadeRoIHead
+from .bbox_heads.tct_bbox_head import TCTBBoxHead
 
 
 @HEADS.register_module()
@@ -136,25 +137,27 @@ class TCTRoIHead(CascadeRoIHead):
         bbox_roi_extractor = self.bbox_roi_extractor
         bbox_head = self.bbox_head[stage]
         bbox_feats = bbox_roi_extractor(x[:bbox_roi_extractor.num_inputs], rois)
-        feats = []
-        inds = rois[:, 0].unique()
-        for i in inds:
-            i = int(i)
-            cur_bbox_feats = bbox_feats[rois[:, 0] == i]
-            if len(cur_bbox_feats):
-                if normal_bbox_feats is None or normal_bbox_feats[i] is None:
-                    cur_normal_bbox_feats = self.get_memory(cur_bbox_feats[0])
-                else:
-                    cur_normal_bbox_feats = normal_bbox_feats[i]
-                cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
-                cur_feats, cur_bbox_feats = self.calculate_feature(cur_bbox_feats, cur_normal_bbox_feats, stage)
-                feats.append(cur_feats + cur_bbox_feats)
-        bbox_feats = torch.cat(feats)
         # do not support caffe_c4 model anymore
-        cls_score, bbox_pred = bbox_head(bbox_feats)
+        if isinstance(bbox_head, TCTBBoxHead):
+            feats = []
+            inds = rois[:, 0].unique()
+            for i in inds:
+                i = int(i)
+                cur_bbox_feats = bbox_feats[rois[:, 0] == i]
+                if len(cur_bbox_feats):
+                    if normal_bbox_feats is None or normal_bbox_feats[i] is None:
+                        cur_normal_bbox_feats = self.get_memory(cur_bbox_feats[0])
+                    else:
+                        cur_normal_bbox_feats = normal_bbox_feats[i]
+                    cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
+                    cur_feats, cur_bbox_feats = self.calculate_feature(cur_bbox_feats, cur_normal_bbox_feats, stage)
+                    feats.append(cur_feats)
+            feats = torch.cat(feats)
+            cls_score, bbox_pred = bbox_head(bbox_feats, feats, rois)
+        else:
+            cls_score, bbox_pred = bbox_head(bbox_feats)
 
-        bbox_results = dict(
-            cls_score = cls_score, bbox_pred = bbox_pred, bbox_feats = bbox_feats)
+        bbox_results = dict(cls_score = cls_score, bbox_pred = bbox_pred, bbox_feats = bbox_feats)
         return bbox_results
 
     def _bbox_forward_train(self, stage, x, sampling_results, gt_bboxes,
