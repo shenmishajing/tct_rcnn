@@ -17,7 +17,7 @@ class TCTBBoxHead(Shared2FCBBoxHead):
                                                     \-> reg convs -> reg fcs -> reg
     """  # noqa: W605
 
-    def forward(self, x, delta_feats = None, rois = None):
+    def forward(self, x, normal_feats = None, rois = None):
         # shared part
         if self.num_shared_convs > 0:
             for conv in self.shared_convs:
@@ -27,7 +27,8 @@ class TCTBBoxHead(Shared2FCBBoxHead):
             if self.with_avg_pool:
                 x = self.avg_pool(x)
 
-            x = self.relu(self.shared_fcs[0](x.flatten(1))) + delta_feats
+            x = self.relu(self.shared_fcs[0](x.flatten(1)))
+            x = 2 * x - normal_feats
 
             for fc in self.shared_fcs[1:]:
                 x = self.relu(fc(x))
