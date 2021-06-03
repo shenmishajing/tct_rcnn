@@ -12,7 +12,7 @@ class TCTRoIHead(CascadeRoIHead):
     """RoI head for TCT RCNN.
     """
 
-    def __init__(self, num_classes, stage_loss_weights, train_cfg, num_memory = 10, *args, **kwargs):
+    def __init__(self, num_classes, stage_loss_weights, train_cfg, shared_fcs = False, num_memory = 10, *args, **kwargs):
         self.stages = ['single', 'multi', 'tct']
         if stage_loss_weights is None or stage_loss_weights == {} or self.stages[0] not in self.stages:
             stage_loss_weights = {}
@@ -31,7 +31,30 @@ class TCTRoIHead(CascadeRoIHead):
                                          *args, **kwargs)
         self.num_classes = num_classes
         self.memory_bank = []
+        self.shared_fusion_fcs = shared_fcs
         self.num_memory = num_memory
+        self.init_module(shared_fcs)
+
+    def init_module(self, shared_fcs):
+        self.relu = nn.ReLU(inplace = True)
+        self.abnormal_fc = nn.ModuleDict()
+        self.normal_fc = nn.ModuleDict()
+        fusion_fc = None
+        for stage in self.stages:
+            fc_in_channels = self.bbox_head[stage].in_channels * self.bbox_head[stage].roi_feat_area
+            fc_out_channels = self.bbox_head[stage].shared_out_channels
+            if shared_fcs:
+                if stage == self.stages[0]:
+                    fusion_fc = [nn.Linear(fc_in_channels, fc_out_channels) for _ in range(2)]
+                self.normal_fc[stage], self.abnormal_fc[stage] = fusion_fc
+            else:
+                self.normal_fc[stage], self.abnormal_fc[stage] = [nn.Linear(fc_in_channels, fc_out_channels) for _ in range(2)]
+
+    def calculate_feature(self, bbox_feats, normal_bbox_feats, stage):
+        bbox_feats = self.relu(self.abnormal_fc[stage](bbox_feats.flatten(1)))
+        normal_bbox_feats = self.relu(self.normal_fc[stage](normal_bbox_feats.flatten(1)))
+        feats = bbox_feats - normal_bbox_feats
+        return feats, bbox_feats
 
     def init_bbox_head(self, bbox_roi_extractor, bbox_head):
         """Initialize box head and box roi extractor.
@@ -124,8 +147,8 @@ class TCTRoIHead(CascadeRoIHead):
                 else:
                     cur_normal_bbox_feats = normal_bbox_feats[i]
                 cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
-                cur_bbox_feats = 2 * cur_bbox_feats - cur_normal_bbox_feats
-                feats.append(cur_bbox_feats)
+                cur_feats, cur_bbox_feats = self.calculate_feature(cur_bbox_feats, cur_normal_bbox_feats, stage)
+                feats.append(cur_feats + cur_bbox_feats)
         bbox_feats = torch.cat(feats)
         # do not support caffe_c4 model anymore
         cls_score, bbox_pred = bbox_head(bbox_feats)
