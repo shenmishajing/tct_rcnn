@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 
 from mmdet.models.builder import HEADS
-from .convfc_bbox_head import Shared2FCBBoxHead
+from .convfc_bbox_head import ConvFCBBoxHead
 
 
 @HEADS.register_module()
-class TCTBBoxHead(Shared2FCBBoxHead):
+class TCTBBoxHead(ConvFCBBoxHead):
     r"""More general bbox head, with shared conv and fc layers and relation module
      and two optional separated branches.
 
@@ -42,7 +42,7 @@ class TCTBBoxHead(Shared2FCBBoxHead):
         relation_feature = relation_feature.permute(1, 0, 2)
         return relation_feature.reshape(relation_feature.shape[0], -1)
 
-    def forward(self, x, delta_feats = None, rois = None):
+    def forward(self, x, normal_feats = None, rois = None):
         # shared part
         if self.num_shared_convs > 0:
             for conv in self.shared_convs:
@@ -55,11 +55,11 @@ class TCTBBoxHead(Shared2FCBBoxHead):
             x = self.relu(self.shared_fcs[0](x.flatten(1)))
 
             if rois is None:
-                x = x + self._relation_forwards(x) + delta_feats
+                x = 2*x + self._relation_forwards(x) - normal_feats
             else:
                 x_list = []
                 for i in rois[:, 0].unique():
-                    x_list.append(x[rois[:, 0] == i] + self._relation_forwards(x[rois[:, 0] == i]) + delta_feats[rois[:, 0] == i])
+                    x_list.append(x[rois[:, 0] == i] + self._relation_forwards(x[rois[:, 0] == i]) - normal_feats[rois[:, 0] == i])
                 x = torch.cat(x_list)
 
             for fc in self.shared_fcs[1:]:

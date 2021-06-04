@@ -103,7 +103,6 @@ model = dict(
         abnormal = dict(
             type = 'TCTRoIHead',
             num_classes = 5,
-            shared_fcs = False,
             num_memory = 10,
             stage_loss_weights = dict(
                 tct = 1.0,
@@ -145,6 +144,7 @@ model = dict(
                     loss_bbox = dict(type = 'L1Loss', loss_weight = 1.0)),
                 tct = dict(
                     type = 'TCTBBoxHead',
+                    num_shared_fcs = 2,
                     in_channels = 256,
                     fc_out_channels = 1024,
                     num_relation_parts = 8,
