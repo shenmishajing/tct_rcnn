@@ -5,7 +5,6 @@ _base_ = [
 ]
 
 model = dict(bbox_head = dict(num_classes = 5))
-optimizer = dict(lr = 0.005)
 
 log_config = dict(
     hooks = [
