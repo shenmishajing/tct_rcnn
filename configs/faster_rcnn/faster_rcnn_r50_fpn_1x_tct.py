@@ -4,7 +4,6 @@ _base_ = [
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
 model = dict(roi_head = dict(bbox_head = dict(num_classes = 5)))
-optimizer = dict(lr = 0.005)
 
 log_config = dict(
     hooks = [
