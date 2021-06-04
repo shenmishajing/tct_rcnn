@@ -4,8 +4,6 @@ _base_ = [
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
 
-optimizer = dict(lr = 0.005)
-
 model = dict(roi_head = dict(bbox_head = [
     dict(
         type = 'Shared2FCBBoxHead',
