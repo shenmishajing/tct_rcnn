@@ -3,7 +3,7 @@ _base_ = [
     '../_base_/datasets/tct_detection.py',
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
-load_from = '/data/zhengwenhao/Result/TCT-RCNN/Model_result/TCT-RCNN/0.005lr/best_bbox_mAP_50_Nomraml_fcfirst_DifferencFeature.pth'
+load_from = '/data/zhengwenhao/Result/TCT-RCNN/Model_result/TCT-RCNN/0.005lr/best_bbox_mAP_50_Normal_fcfirst_DifferenceFeature.pth'
 custom_hooks = []
 
 log_config = dict(
