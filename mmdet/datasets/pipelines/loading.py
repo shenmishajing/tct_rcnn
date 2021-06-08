@@ -418,8 +418,6 @@ class LoadProposals:
         if self.num_max_proposals is not None:
             proposals = proposals[:self.num_max_proposals]
 
-        if len(proposals) == 0:
-            proposals = np.array([[0, 0, 0, 0]], dtype=np.float32)
         results['proposals'] = proposals
         results['bbox_fields'].append('proposals')
         return results

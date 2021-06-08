@@ -211,9 +211,9 @@ class TCTRCNN(TwoStageDetector):
             det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_meta, proposal_list,
                                                                                 self.roi_head['normal'].test_cfg)
             det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
+            det_bboxes = [bbox[label == 0] for bbox, label in zip(det_bboxes, det_labels)]
         else:
             det_bboxes = proposals
-            det_labels = [torch.zeros(len(p)) for p in proposals]
 
         ################
         # Abnormal stage
@@ -221,9 +221,7 @@ class TCTRCNN(TwoStageDetector):
 
         # RPN forward and loss
         proposal_list = await self.rpn_head['abnormal'].async_simple_test_rpn(x, img_meta, rescale = rescale)
-
-        pos_det_bboxes = [bbox[label == 0] for bbox, label in zip(det_bboxes, det_labels)]
-        return await self.roi_head['abnormal'].async_simple_test(x, proposal_list, img_meta, pos_det_bboxes)
+        return await self.roi_head['abnormal'].async_simple_test(x, proposal_list, img_meta, det_bboxes)
 
     def simple_test(self, img, img_metas, proposals = None, rescale = False):
         """Test without augmentation."""
@@ -243,9 +241,9 @@ class TCTRCNN(TwoStageDetector):
             det_bboxes, det_labels = self.roi_head['normal'].simple_test_bboxes(x, img_metas, proposal_list,
                                                                                 self.roi_head['normal'].test_cfg)
             det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
+            det_bboxes = [bbox[label == 0] for bbox, label in zip(det_bboxes, det_labels)]
         else:
             det_bboxes = proposals
-            det_labels = [torch.zeros(len(p)) for p in proposals]
 
         ################
         # Abnormal stage
@@ -254,8 +252,7 @@ class TCTRCNN(TwoStageDetector):
         # RPN forward and loss
         proposal_list = self.rpn_head['abnormal'].simple_test_rpn(x, img_metas)
 
-        pos_det_bboxes = [bbox[label == 0] for bbox, label in zip(det_bboxes, det_labels)]
-        return self.roi_head['abnormal'].simple_test(x, proposal_list, img_metas, pos_det_bboxes, rescale = rescale)
+        return self.roi_head['abnormal'].simple_test(x, proposal_list, img_metas, det_bboxes, rescale = rescale)
 
     def aug_test(self, imgs, img_metas, proposals = None, rescale = False):
         """Test with augmentations.
@@ -277,9 +274,9 @@ class TCTRCNN(TwoStageDetector):
 
             det_bboxes, det_labels = self.roi_head['normal'].aug_test_bboxes(x, img_metas, proposal_list, self.roi_head['normal'].test_cfg)
             det_bboxes = [bbox[:, :4] for bbox in det_bboxes]
+            det_bboxes = [bbox[label == 0] for bbox, label in zip(det_bboxes, det_labels)]
         else:
             det_bboxes = proposals
-            det_labels = [torch.zeros(len(p)) for p in proposals]
 
         ################
         # Abnormal stage
@@ -288,5 +285,4 @@ class TCTRCNN(TwoStageDetector):
         # RPN forward and loss
         proposal_list = self.rpn_head['abnormal'].aug_test_rpn(x, img_metas)
 
-        pos_det_bboxes = [bbox[label == 0] for bbox, label in zip(det_bboxes, det_labels)]
-        return self.roi_head['abnormal'].aug_test(x, proposal_list, img_metas, pos_det_bboxes, rescale = rescale)
+        return self.roi_head['abnormal'].aug_test(x, proposal_list, img_metas, det_bboxes, rescale = rescale)
