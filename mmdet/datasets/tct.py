@@ -48,7 +48,7 @@ class TCTDataset(CocoDataset):
         self.data_root = data_root
         self.img_prefix = img_prefix
         self.seg_prefix = seg_prefix
-        self.proposal_file = proposal_file
+        self.proposal_file = None if proposal_file is None else osp.join(proposal_file, self.split + '.pkl')
         self.test_mode = test_mode
         self.debug_len = debug_len
         self.filter_empty_gt = filter_empty_gt
@@ -140,6 +140,11 @@ class TCTDataset(CocoDataset):
             return self.debug_len
         else:
             return super(TCTDataset, self).__len__()
+
+    def load_proposals(self, proposal_file):
+        """Load proposal from proposal file."""
+        proposals = super(TCTDataset, self).load_proposals(proposal_file)
+        return [np.concatenate(p, axis = 0) for p in proposals]
 
     def load_annotations(self, ann_file):
         """Load annotation from COCO style annotation file.

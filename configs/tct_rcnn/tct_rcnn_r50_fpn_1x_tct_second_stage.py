@@ -1,6 +1,6 @@
 _base_ = [
     '../_base_/models/tct_rcnn_r50_fpn.py',
-    '../_base_/datasets/tct_detection.py',
+    '../_base_/datasets/tct_detection_proposal.py',
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
 load_from = '/data/zhengwenhao/Result/TCT-RCNN/Model_result/TCT-RCNN/0.005lr/best_bbox_mAP_50_Normal_fcfirst_DifferenceFeature.pth'
