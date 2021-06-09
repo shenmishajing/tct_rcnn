@@ -28,6 +28,7 @@ class TCTBBoxHead(ConvFCBBoxHead):
                 x = self.avg_pool(x)
 
             x = self.relu(self.shared_fcs[0](x.flatten(1)))
+            normal_feats = self.relu(self.shared_fcs[0](normal_feats.flatten(1)))
             x = 2 * x - normal_feats
 
             for fc in self.shared_fcs[1:]:

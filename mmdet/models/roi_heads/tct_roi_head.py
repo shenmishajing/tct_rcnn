@@ -33,13 +33,6 @@ class TCTRoIHead(CascadeRoIHead):
         self.num_classes = num_classes
         self.memory_bank = []
         self.num_memory = num_memory
-        self.init_module()
-
-    def init_module(self):
-        self.relu = nn.ReLU(inplace = True)
-        fc_in_channels = self.bbox_head[self.stages[0]].in_channels * self.bbox_head[self.stages[0]].roi_feat_area
-        fc_out_channels = self.bbox_head[self.stages[0]].shared_out_channels
-        self.normal_fc = nn.Linear(fc_in_channels, fc_out_channels)
 
     def init_bbox_head(self, bbox_roi_extractor, bbox_head):
         """Initialize box head and box roi extractor.
@@ -134,7 +127,6 @@ class TCTRoIHead(CascadeRoIHead):
                     else:
                         cur_normal_bbox_feats = normal_bbox_feats[i]
                     cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
-                    cur_normal_bbox_feats = self.relu(self.normal_fc(cur_normal_bbox_feats.flatten(1)))
                     normal_feats.append(cur_normal_bbox_feats)
             normal_feats = torch.cat(normal_feats)
             cls_score, bbox_pred = bbox_head(bbox_feats, normal_feats, rois)
