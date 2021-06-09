@@ -33,6 +33,10 @@ class TCTBBoxHead(ConvFCBBoxHead):
 
             for fc in self.shared_fcs[1:]:
                 x = self.relu(fc(x))
+                normal_feats = self.relu(fc(normal_feats))
+
+            x = 2 * x - normal_feats
+
         # separate branches
         x_cls = x
         x_reg = x
