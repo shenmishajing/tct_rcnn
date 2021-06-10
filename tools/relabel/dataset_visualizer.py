@@ -19,6 +19,21 @@ def get_colors(num_colors):
         colors.append((color[2], color[1], color[0]))
     return colors
 
+
+def get_color(name):
+    color_dict = {
+        'LSIL': (15, 58, 205),
+        'ASCH': (241, 177, 67),
+        'HSIL': (0, 241, 241),
+        'SQCA': (243, 29, 199),
+        'ASCUS': (113, 244, 56)
+    }
+    for color_name, color in color_dict.items():
+        if color_name in name:
+            return color[2], color[1], color[0]
+    return 0, 0, 0
+
+
 # 坐标顺序： 上-》左-》下-》右
 def draw_bounding_box_on_image(img,
                                xmin,
@@ -56,11 +71,11 @@ def draw_bounding_box_on_image(img,
                 color = (256, 256, 256))
 
 
-def draw_image(image, image_id_to_anns, images_path, image_output_path):
-    if not len(image_id_to_anns[image['id']]):
+def draw_image(image, anns, images_path, image_output_path):
+    if not len(anns):
         return
     img = cv2.imread(os.path.join(images_path, image['filename']))
-    for bbox in image_id_to_anns[image['id']]:
+    for bbox in anns:
         draw_bounding_box_on_image(img, *bbox['bbox'], color = bbox['color'], display_str = bbox['name'])
     cv2.imwrite(os.path.join(image_output_path, image['filename']), img)
 
@@ -70,15 +85,14 @@ def draw_images(json_path, images_path, image_output_path):
         os.makedirs(image_output_path)
 
     ann_dict = json.load(open(json_path))
-    # colors = get_colors(len(ann_dict['categories']))
-    # category_dict = {category['id']: {'name': category['name'], 'color': color} for category, color in zip(ann_dict['categories'], colors)}
-    colors = get_colors(6)
-    category_dict = {category['id']: {
-        'name': category['name'] if 'multi' in category['name'] else category['name'] + '-single',
-        'color': colors[i] if i < 6 else colors[i - 5]} for i, category in enumerate(ann_dict['categories'])}
+    colors = get_colors(len(ann_dict['categories']))
+    category_dict = {category['id']: {'name': category['name'], 'color': color} for category, color in zip(ann_dict['categories'], colors)}
+    # category_dict = {category['id']: {
+    #     'name': category['name'] if 'multi' in category['name'] else category['name'] + '-single',
+    #     'color': get_color(category['name'])} for i, category in enumerate(ann_dict['categories']) if category['name'] != 'NORMAL'}
     image_id_to_anns = defaultdict(list)
     for ann in ann_dict['annotations']:
-        if category_dict[ann['category_id']]['name'] == 'NORMAL-single':
+        if ann['category_id'] not in category_dict:
             continue
         image_id_to_anns[ann['image_id']].append(
             {'bbox': [ann['bbox'][0], ann['bbox'][1], ann['bbox'][0] + ann['bbox'][2], ann['bbox'][1] + ann['bbox'][3]],
@@ -86,8 +100,30 @@ def draw_images(json_path, images_path, image_output_path):
              'color': category_dict[ann['category_id']]['color']})
     prog_bar = mmcv.ProgressBar(len(ann_dict['images']))
     for image in ann_dict['images']:
-        draw_image(image, image_id_to_anns, images_path, image_output_path)
+        draw_image(image, image_id_to_anns[image['id']], images_path, image_output_path)
         prog_bar.update()
+
+
+def temp_main():
+    data_dir = "/data/zhengwenhao/Datasets/TCTDataSet"
+    json_path = os.path.join(data_dir, 'coco/tct_all.json')
+    images_path = os.path.join(data_dir, 'JPEGImages')
+    output_path = os.path.join(data_dir, 'middle_results/outputs')
+    image_output_path = 'images'
+
+    image_output_path = os.path.join(output_path, image_output_path)
+    ann_dict = json.load(open(json_path))
+    for image in ann_dict['images']:
+        if image['filename'] == '62_40 (2).jpg':
+            print(image['id'])
+            break
+    anns = []
+    for ann in ann_dict['annotations']:
+        if ann['image_id'] == image['id']:
+            anns.append({'bbox': [ann['bbox'][0], ann['bbox'][1], ann['bbox'][0] + ann['bbox'][2], ann['bbox'][1] + ann['bbox'][3]],
+                         'name': 'ASCH-single' if ann['category_id'] == 1 else 'ASCH-multi',
+                         'color': get_color('ASCH')})
+    draw_image(image, anns, images_path, image_output_path)
 
 
 def main():
