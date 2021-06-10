@@ -63,7 +63,7 @@ class TCTRoIHead(CascadeRoIHead):
 
     def get_memory(self, tensor = None, device = torch.device('cpu'), dtype = torch.float32):
         if self.memory_bank:
-            return random.choice(self.memory_bank)
+            return torch.mean(torch.cat(self.memory_bank), dim = 0)
         else:
             out_channels = self.bbox_roi_extractor.out_channels
             out_size = self.bbox_roi_extractor.roi_layers[0].output_size
@@ -101,7 +101,7 @@ class TCTRoIHead(CascadeRoIHead):
             for i in range(len(det_bboxes)):
                 cur_bbox_feats = normal_bbox_feats[normal_rois[:, 0] == i]
                 if len(cur_bbox_feats):
-                    bbox_feats.append(random.choice(cur_bbox_feats))
+                    bbox_feats.append(torch.mean(cur_bbox_feats, dim = 0))
                 else:
                     bbox_feats.append(None)
         else:

@@ -145,7 +145,6 @@ class TCTDataset(CocoDataset):
         """Load proposal from proposal file."""
         proposals = super(TCTDataset, self).load_proposals(proposal_file)
         proposals = [np.concatenate(p, axis = 0) for p in proposals]
-        proposals = [p[np.newaxis, np.argmax(p[:, -1])] if len(p) > 1 else p for p in proposals]
         return proposals
 
     def load_annotations(self, ann_file):
