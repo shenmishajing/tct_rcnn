@@ -126,10 +126,8 @@ class TCTRoIHead(CascadeRoIHead):
                         cur_normal_bbox_feats = self.get_memory(cur_bbox_feats[0])
                     else:
                         cur_normal_bbox_feats = normal_bbox_feats[i]
-                    cur_normal_bbox_feats = cur_normal_bbox_feats[None, ...].expand_as(cur_bbox_feats)
                     normal_feats.append(cur_normal_bbox_feats)
-            normal_feats = torch.cat(normal_feats)
-            cls_score, bbox_pred = bbox_head(bbox_feats, normal_feats, rois)
+            cls_score, bbox_pred = bbox_head(bbox_feats, normal_feats, rois[:, 0])
         else:
             cls_score, bbox_pred = bbox_head(bbox_feats)
 

@@ -17,7 +17,7 @@ class TCTBBoxHead(ConvFCBBoxHead):
                                                     \-> reg convs -> reg fcs -> reg
     """  # noqa: W605
 
-    def forward(self, x, normal_feats = None, rois = None):
+    def forward(self, x, normal_feats = None, batch_inds = None):
         # shared part
         if self.num_shared_convs > 0:
             for conv in self.shared_convs:
@@ -28,8 +28,14 @@ class TCTBBoxHead(ConvFCBBoxHead):
                 x = self.avg_pool(x)
 
             x = self.relu(self.shared_fcs[0](x.flatten(1)))
+            normal_feats = [torch.mean(normal_feat, dim = 0) if len(normal_feat.size()) == 4 else normal_feat for normal_feat in
+                            normal_feats]
+            normal_feats = torch.cat(normal_feats)
             normal_feats = self.relu(self.shared_fcs[0](normal_feats.flatten(1)))
-            x = 2 * x - normal_feats
+            x_list = []
+            for i in range(len(normal_feats)):
+                x_list.append(2 * x[batch_inds == i] - normal_feats[i])
+            x = torch.cat(x_list)
 
             for fc in self.shared_fcs[1:]:
                 x = self.relu(fc(x))
