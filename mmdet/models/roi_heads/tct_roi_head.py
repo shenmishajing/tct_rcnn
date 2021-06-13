@@ -4,6 +4,7 @@ import torch.nn as nn
 from mmdet.core import bbox2result, bbox2roi, bbox_mapping, build_assigner, build_sampler, merge_aug_bboxes, merge_aug_masks, multiclass_nms
 from ..builder import HEADS, build_head, build_roi_extractor
 from .cascade_roi_head import CascadeRoIHead
+from .bbox_heads.tct_bbox_head import TCTBBoxHead
 
 
 @HEADS.register_module()
@@ -11,7 +12,7 @@ class TCTRoIHead(CascadeRoIHead):
     """RoI head for TCT RCNN.
     """
 
-    def __init__(self, num_classes, stage_loss_weights, train_cfg, *args, **kwargs):
+    def __init__(self, num_classes, stage_loss_weights, train_cfg, distance_fc_dim = 128, *args, **kwargs):
         self.stages = ['single', 'multi', 'tct']
         if stage_loss_weights is None or stage_loss_weights == {} or self.stages[0] not in self.stages:
             stage_loss_weights = {}
@@ -29,6 +30,12 @@ class TCTRoIHead(CascadeRoIHead):
         super(TCTRoIHead, self).__init__(num_stages = len(self.stages), stage_loss_weights = stage_loss_weights, train_cfg = train_cfg,
                                          *args, **kwargs)
         self.num_classes = num_classes
+        self.distance_fc_dim = distance_fc_dim
+        self.distance_fc1 = nn.Linear(self.bbox_head[self.stages[-1]].in_channels * self.bbox_head[self.stages[-1]].roi_feat_area,
+                                      self.bbox_head[self.stages[-1]].fc_out_channels)
+        self.distance_fc2 = nn.Linear(self.bbox_head[self.stages[-1]].fc_out_channels, self.distance_fc_dim)
+        self.relu = nn.ReLU(inplace = True)
+        self.norm = nn.LayerNorm([self.distance_fc_dim])
 
     def init_bbox_head(self, bbox_roi_extractor, bbox_head):
         """Initialize box head and box roi extractor.
@@ -74,6 +81,37 @@ class TCTRoIHead(CascadeRoIHead):
                 outs = outs + (bbox_results['cls_score'],
                                bbox_results['bbox_pred'])
         return outs
+
+    def _bbox_forward_train(self, stage, x, sampling_results, gt_bboxes,
+                            gt_labels, rcnn_train_cfg):
+        """Run forward function and calculate loss for box head in training."""
+        rois = bbox2roi([res.bboxes for res in sampling_results])
+        bbox_results = self._bbox_forward(stage, x, rois)
+        bbox_targets = self.bbox_head[stage].get_targets(
+            sampling_results, gt_bboxes, gt_labels, rcnn_train_cfg)
+        if isinstance(self.bbox_head[stage], TCTBBoxHead):
+            pos_bbox_feats = []
+            cur_start = 0
+            for i in range(len(sampling_results)):
+                cur_feat = bbox_results['bbox_feats'][cur_start:cur_start + len(sampling_results[i].bboxes)]
+                pos_bbox_feat = cur_feat[sampling_results[i].pos_inds]
+                pos_bbox_feats.append(pos_bbox_feat)
+                cur_start += len(sampling_results[i].bboxes)
+            pos_bbox_feats = torch.cat(pos_bbox_feats)
+            pos_bbox_feats = self.relu(self.distance_fc1(pos_bbox_feats.flatten(1)))
+            pos_bbox_feats = self.norm(self.distance_fc2(pos_bbox_feats))
+            loss_bbox = self.bbox_head[stage].loss(bbox_results['cls_score'],
+                                                   bbox_results['bbox_pred'],
+                                                   pos_bbox_feats, rois,
+                                                   *bbox_targets)
+        else:
+            loss_bbox = self.bbox_head[stage].loss(bbox_results['cls_score'],
+                                                   bbox_results['bbox_pred'], rois,
+                                                   *bbox_targets)
+
+        bbox_results.update(
+            loss_bbox = loss_bbox, rois = rois, bbox_targets = bbox_targets)
+        return bbox_results
 
     def forward_train(self,
                       x,
