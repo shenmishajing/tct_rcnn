@@ -25,6 +25,7 @@ class TCTBBoxHead(ConvFCBBoxHead):
         self.relu = nn.ReLU(inplace = True)
         self.norm1 = nn.LayerNorm([self.roi_feat_area, self.roi_feat_area])
         self.norm2 = nn.LayerNorm([self.roi_feat_area, self.in_channels])
+        self.norm3 = nn.LayerNorm([self.in_channels, *self.roi_feat_size])
 
     def forward(self, x, normal_feats = None, batch_inds = None):
         x_list = []
@@ -37,7 +38,8 @@ class TCTBBoxHead(ConvFCBBoxHead):
             cur_x = x[batch_inds == i].flatten(2).permute(0, 2, 1)
             cur_x = self.relu(self.norm1(cur_x.matmul(params[:, :, 0].T)))
             cur_x = self.relu(self.norm2(cur_x.matmul(params[:, :, 1])))
-            cur_x = cur_x.permute(0, 2, 1).reshape(-1, self.in_channels, *self.roi_feat_size)
+            cur_x = x[batch_inds == i] + cur_x.permute(0, 2, 1).reshape(-1, self.in_channels, *self.roi_feat_size)
+            cur_x = self.norm3(cur_x)
             x_list.append(cur_x)
         x = torch.cat(x_list)
         return super(TCTBBoxHead, self).forward(x)
