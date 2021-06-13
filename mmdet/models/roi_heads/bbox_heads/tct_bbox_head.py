@@ -26,73 +26,6 @@ class TCTBBoxHead(ConvFCBBoxHead):
                  **kwargs):
         self.pos_bboxes_temperature = pos_bboxes_temperature
         super(TCTBBoxHead, self).__init__(*args, **kwargs)
-        self.log_softmax = nn.LogSoftmax(dim = 0)
-
-    def _get_target_single(self, pos_bboxes, neg_bboxes, pos_gt_bboxes,
-                           pos_gt_labels, cfg):
-        """Calculate the ground truth for proposals in the single image
-        according to the sampling results.
-
-        Args:
-            pos_bboxes (Tensor): Contains all the positive boxes,
-                has shape (num_pos, 4), the last dimension 4
-                represents [tl_x, tl_y, br_x, br_y].
-            neg_bboxes (Tensor): Contains all the negative boxes,
-                has shape (num_neg, 4), the last dimension 4
-                represents [tl_x, tl_y, br_x, br_y].
-            pos_gt_bboxes (Tensor): Contains all the gt_boxes,
-                has shape (num_gt, 4), the last dimension 4
-                represents [tl_x, tl_y, br_x, br_y].
-            pos_gt_labels (Tensor): Contains all the gt_labels,
-                has shape (num_gt).
-            cfg (obj:`ConfigDict`): `train_cfg` of R-CNN.
-
-        Returns:
-            Tuple[Tensor]: Ground truth for proposals
-            in a single image. Containing the following Tensors:
-
-                - labels(Tensor): Gt_labels for all proposals, has
-                  shape (num_proposals,).
-                - label_weights(Tensor): Labels_weights for all
-                  proposals, has shape (num_proposals,).
-                - bbox_targets(Tensor):Regression target for all
-                  proposals, has shape (num_proposals, 4), the
-                  last dimension 4 represents [tl_x, tl_y, br_x, br_y].
-                - bbox_weights(Tensor):Regression weights for all
-                  proposals, has shape (num_proposals, 4).
-        """
-        num_pos = pos_bboxes.size(0)
-        num_neg = neg_bboxes.size(0)
-        num_samples = num_pos + num_neg
-
-        # original implementation uses new_zeros since BG are set to be 0
-        # now use empty & fill because BG cat_id = num_classes,
-        # FG cat_id = [0, num_classes-1]
-        labels = pos_bboxes.new_full((num_samples,),
-                                     self.num_classes,
-                                     dtype = torch.long)
-        label_weights = pos_bboxes.new_zeros(num_samples)
-        bbox_targets = pos_bboxes.new_zeros(num_samples, 4)
-        bbox_weights = pos_bboxes.new_zeros(num_samples, 4)
-        if num_pos > 0:
-            labels[:num_pos] = pos_gt_labels
-            pos_weight = 1.0 if cfg.pos_weight <= 0 else cfg.pos_weight
-            label_weights[:num_pos] = pos_weight
-            if not self.reg_decoded_bbox:
-                pos_bbox_targets = self.bbox_coder.encode(
-                    pos_bboxes, pos_gt_bboxes)
-            else:
-                # When the regression loss (e.g. `IouLoss`, `GIouLoss`)
-                # is applied directly on the decoded bounding boxes, both
-                # the predicted boxes and regression targets should be with
-                # absolute coordinate format.
-                pos_bbox_targets = pos_gt_bboxes
-            bbox_targets[:num_pos, :] = pos_bbox_targets
-            bbox_weights[:num_pos, :] = 1
-        if num_neg > 0:
-            label_weights[-num_neg:] = 1.0
-
-        return labels, label_weights, bbox_targets, bbox_weights
 
     def get_targets(self,
                     sampling_results,
@@ -226,11 +159,11 @@ class TCTBBoxHead(ConvFCBBoxHead):
         if pos_bbox_feats is not None:
             pos_bbox_feats = pos_bbox_feats / torch.norm(pos_bbox_feats, dim = 0, keepdim = True)
             pos_bbox_relation_matrix = pos_bbox_feats.mm(pos_bbox_feats.T) / self.pos_bboxes_temperature
-            pos_bbox_relation_matrix.fill_diagonal_(0)
+            pos_bbox_relation_matrix = pos_bbox_relation_matrix - torch.diag_embed(torch.diag(pos_bbox_relation_matrix))
             pos_bbox_relation_matrix_exp = torch.exp(pos_bbox_relation_matrix)
-            pos_bbox_relation_matrix_exp.fill_diagonal_(0)
+            pos_bbox_relation_matrix_exp = pos_bbox_relation_matrix_exp - torch.diag_embed(torch.diag(pos_bbox_relation_matrix_exp))
             pos_bbox_loss_matrix = pos_bbox_relation_matrix_exp / torch.sum(pos_bbox_relation_matrix_exp, dim = 0, keepdim = True)
-            pos_bbox_loss_matrix.fill_diagonal_(1)
+            pos_bbox_loss_matrix = pos_bbox_loss_matrix - torch.diag_embed(torch.diag(pos_bbox_loss_matrix) - 1)
             pos_bbox_loss_matrix = -torch.log(pos_bbox_loss_matrix) * pos_bbox_label_matrix
             losses['loss_compare'] = torch.sum(pos_bbox_loss_matrix) / torch.sum(pos_bbox_loss_matrix != 0)
         return losses

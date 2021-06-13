@@ -91,12 +91,11 @@ class TCTRoIHead(CascadeRoIHead):
             sampling_results, gt_bboxes, gt_labels, rcnn_train_cfg)
         if isinstance(self.bbox_head[stage], TCTBBoxHead):
             pos_bbox_feats = []
-            cur_start = 0
             for i in range(len(sampling_results)):
-                cur_feat = bbox_results['bbox_feats'][cur_start:cur_start + len(sampling_results[i].bboxes)]
-                pos_bbox_feat = cur_feat[sampling_results[i].pos_inds]
-                pos_bbox_feats.append(pos_bbox_feat)
-                cur_start += len(sampling_results[i].bboxes)
+                if len(sampling_results[i].pos_inds) > 0:
+                    cur_feat = bbox_results['bbox_feats'][rois[:, 0] == i]
+                    pos_bbox_feat = cur_feat[:len(sampling_results[i].pos_inds)]
+                    pos_bbox_feats.append(pos_bbox_feat)
             pos_bbox_feats = torch.cat(pos_bbox_feats)
             pos_bbox_feats = self.relu(self.distance_fc1(pos_bbox_feats.flatten(1)))
             pos_bbox_feats = self.norm(self.distance_fc2(pos_bbox_feats))
