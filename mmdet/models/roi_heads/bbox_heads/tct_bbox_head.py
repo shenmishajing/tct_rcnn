@@ -22,9 +22,11 @@ class TCTBBoxHead(ConvFCBBoxHead):
 
     def __init__(self,
                  pos_bboxes_temperature = 10,
+                 loss_compare = dict(loss_weight = 0.1),
                  *args,
                  **kwargs):
         self.pos_bboxes_temperature = pos_bboxes_temperature
+        self.loss_compare = loss_compare
         super(TCTBBoxHead, self).__init__(*args, **kwargs)
 
     def get_targets(self,
@@ -165,5 +167,6 @@ class TCTBBoxHead(ConvFCBBoxHead):
             pos_bbox_loss_matrix = pos_bbox_relation_matrix_exp / torch.sum(pos_bbox_relation_matrix_exp, dim = 0, keepdim = True)
             pos_bbox_loss_matrix = pos_bbox_loss_matrix - torch.diag_embed(torch.diag(pos_bbox_loss_matrix) - 1)
             pos_bbox_loss_matrix = -torch.log(pos_bbox_loss_matrix) * pos_bbox_label_matrix
-            losses['loss_compare'] = torch.sum(pos_bbox_loss_matrix) / torch.sum(pos_bbox_loss_matrix != 0)
+            losses['loss_compare'] = self.loss_compare['loss_weight'] * torch.sum(pos_bbox_loss_matrix) / torch.sum(
+                pos_bbox_loss_matrix != 0)
         return losses
