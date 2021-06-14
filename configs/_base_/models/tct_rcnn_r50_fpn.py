@@ -149,6 +149,7 @@ model = dict(
                     fc_out_channels = 1024,
                     roi_feat_size = 7,
                     num_classes = 5,
+                pos_bboxes_temperature = 10,
                     bbox_coder = dict(
                         type = 'DeltaXYWHBBoxCoder',
                         target_means = [0., 0., 0., 0.],
@@ -156,7 +157,8 @@ model = dict(
                     reg_class_agnostic = False,
                     loss_cls = dict(
                         type = 'CrossEntropyLoss', use_sigmoid = False, loss_weight = 1.0),
-                    loss_bbox = dict(type = 'L1Loss', loss_weight = 1.0))))),
+                    loss_bbox = dict(type = 'L1Loss', loss_weight = 1.0),
+                loss_compare = dict(loss_weight = 0.1))))),
     # model training and testing settings
     train_cfg = dict(
         rpn = dict(
