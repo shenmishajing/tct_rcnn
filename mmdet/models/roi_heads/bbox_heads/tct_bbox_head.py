@@ -95,8 +95,8 @@ class TCTBBoxHead(ConvFCBBoxHead):
             bbox_targets = torch.cat(bbox_targets, 0)
             bbox_weights = torch.cat(bbox_weights, 0)
         pos_gt_labels = torch.cat(pos_gt_labels_list)
-        pos_bbox_label_matrix = pos_gt_labels[:, None] == pos_gt_labels[None, :]
-        pos_bbox_label_matrix.fill_diagonal_(False)
+        pos_bbox_label_matrix = torch.where(pos_gt_labels[:, None] == pos_gt_labels[None, :], 1, -1)
+        pos_bbox_label_matrix.fill_diagonal_(0)
         return labels, label_weights, bbox_targets, bbox_weights, pos_bbox_label_matrix
 
     @force_fp32(apply_to = ('cls_score', 'bbox_pred'))
