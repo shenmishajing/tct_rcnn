@@ -91,7 +91,7 @@ class ResultVisualizer:
     def _save_image_results(self, data_info, result = None, out_path = None):
         img = cv2.imread(data_info['filename'])
         if result is None:
-            for label, bbox in zip(data_info['ann_info']['label'], data_info['ann_info']['bboxes']):
+            for label, bbox in zip(data_info['ann_info']['labels'], data_info['ann_info']['bboxes']):
                 self.draw_bounding_box_on_image(img, *[int(b) for b in bbox], color = self.categories[label]['color'],
                                                 display_str = self.categories[label]['name'])
         else:
