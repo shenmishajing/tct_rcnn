@@ -91,15 +91,27 @@ class ResultVisualizer:
     def _save_image_results(self, data_info, result = None, out_path = None):
         img = cv2.imread(data_info['filename'])
         if result is None:
-            for label, bbox in zip(data_info['ann_info']['labels'], data_info['ann_info']['bboxes']):
-                self.draw_bounding_box_on_image(img, *[int(b) for b in bbox], color = self.categories[label]['color'],
-                                                display_str = self.categories[label]['name'])
+            labels = data_info['ann_info']['labels']
+            bboxes = data_info['ann_info']['bboxes']
         else:
-            for label, bboxes in enumerate(result):
-                for bbox in bboxes:
-                    if bbox[-1] >= self.score_thr:
-                        self.draw_bounding_box_on_image(img, *[int(b) for b in bbox[:4]], color = self.categories[label]['color'],
-                                                        display_str = self.categories[label]['name'] + f'|{bbox[-1]:.2f}')
+            labels = []
+            bboxes = []
+            for label, bbox in enumerate(result):
+                labels.extend([label for _ in range(len(bbox))])
+                bboxes.append(bbox)
+            labels = np.array(labels)
+            bboxes = np.concatenate(bboxes)
+            gt_num = len(data_info['ann_info']['labels'])
+            if gt_num < len(labels):
+                inds = np.argpartition(bboxes[:, -1], -gt_num)[-gt_num:]
+                labels = labels[inds]
+                bboxes = bboxes[inds, :4]
+            else:
+                bboxes = bboxes[:, :4]
+        for label, bbox in zip(labels, bboxes):
+            if bbox[-1] >= self.score_thr:
+                self.draw_bounding_box_on_image(img, *[int(b) for b in bbox[:4]], color = self.categories[label]['color'],
+                                                display_str = self.categories[label]['name'] + f'|{bbox[-1]:.2f}')
         cv2.imwrite(out_path, img)
 
     def show_result(self,
