@@ -149,6 +149,12 @@ class ResultVisualizer:
 
 
 def parse_args():
+    def add_bool_arg(parser, name, default = True, help = ''):
+        group = parser.add_mutually_exclusive_group(required = False)
+        group.add_argument('--' + name, dest = name.replace('-', '_'), action = 'store_true', help = help)
+        group.add_argument('--no-' + name, dest = name.replace('-', '_'), action = 'store_false', help = help)
+        parser.set_defaults(**{name: default})
+
     parser = argparse.ArgumentParser(
         description = 'MMDet eval image prediction result for each')
     parser.add_argument('config', help = 'test config file path')
@@ -161,8 +167,8 @@ def parse_args():
         type = float,
         default = 0,
         help = 'score threshold (default: 0.)')
-    parser.add_argument('--show-gt-nums', action = 'store_true', help = 'whether only show exactly top #gt det bboxes')
-    parser.add_argument('--show-ground-truth', action = 'store_true', help = 'whether show ground truth')
+    add_bool_arg(parser, 'show-gt-nums', help = 'whether only show exactly top #gt det bboxes')
+    add_bool_arg(parser, 'show-ground-truth', help = 'whether show ground truth')
     parser.add_argument(
         '--cfg-options',
         nargs = '+',
