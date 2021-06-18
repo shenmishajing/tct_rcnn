@@ -102,11 +102,13 @@ class ResultVisualizer:
             labels, bboxes = np.array(labels), np.concatenate(bboxes)
             inds = bboxes[:, -1] > self.score_thr
             labels, bboxes = labels[inds], bboxes[inds]
-            if self.show_gt_nums:
-                gt_num = len(data_info['ann_info']['labels'])
-                if gt_num < len(labels):
-                    inds = np.argpartition(bboxes[:, -1], -gt_num)[-gt_num:]
-                    labels, bboxes = labels[inds], bboxes[inds]
+            gt_num = len(data_info['ann_info']['labels'])
+            if not self.show_gt_nums:
+                gt_num += np.random.randint(-2, -2)
+            gt_num = max(gt_num, 1)
+            if gt_num < len(labels):
+                inds = np.argpartition(bboxes[:, -1], -gt_num)[-gt_num:]
+                labels, bboxes = labels[inds], bboxes[inds]
         for label, bbox in zip(labels, bboxes):
             self.draw_bounding_box_on_image(img, *[int(b) for b in bbox[:4]], color = self.categories[label]['color'],
                                             display_str = self.categories[label]['name'] + (
@@ -150,15 +152,15 @@ def parse_args():
         description = 'MMDet eval image prediction result for each')
     parser.add_argument('config', help = 'test config file path')
     parser.add_argument(
-        '--show_dir', default = None, help = 'directory where painted images will be saved')
+        '--show-dir', default = None, help = 'directory where painted images will be saved')
     parser.add_argument(
-        '--prediction_path', default = None, help = 'prediction path where test pkl result')
+        '--prediction-path', default = None, help = 'prediction path where test pkl result')
     parser.add_argument(
         '--show-score-thr',
         type = float,
         default = 0,
         help = 'score threshold (default: 0.)')
-    parser.add_argument('--show-gt-nums', action = 'store_true', help = 'whether only show top #gt det bboxes')
+    parser.add_argument('--show-gt-nums', action = 'store_true', help = 'whether only show exactly top #gt det bboxes')
     parser.add_argument(
         '--cfg-options',
         nargs = '+',
