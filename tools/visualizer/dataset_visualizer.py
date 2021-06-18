@@ -104,7 +104,7 @@ class ResultVisualizer:
             labels, bboxes = labels[inds], bboxes[inds]
             gt_num = len(data_info['ann_info']['labels'])
             if not self.show_gt_nums:
-                gt_num += np.random.randint(-2, -2)
+                gt_num += np.random.randint(-2, 3)
             gt_num = max(gt_num, 1)
             if gt_num < len(labels):
                 inds = np.argpartition(bboxes[:, -1], -gt_num)[-gt_num:]
