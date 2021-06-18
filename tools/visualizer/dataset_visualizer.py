@@ -30,7 +30,8 @@ def get_color(name):
         'ASCH': (241, 177, 67),
         'HSIL': (0, 241, 241),
         'SQCA': (243, 29, 199),
-        'ASCUS': (113, 244, 56)
+        'ASCUS': (113, 244, 56),
+        'NORMAL': (190, 0, 20)
     }
     for color_name, color in color_dict.items():
         if color_name in name:
