@@ -162,6 +162,7 @@ def parse_args():
         default = 0,
         help = 'score threshold (default: 0.)')
     parser.add_argument('--show-gt-nums', action = 'store_true', help = 'whether only show exactly top #gt det bboxes')
+    parser.add_argument('--show-ground-truth', action = 'store_true', help = 'whether show ground truth')
     parser.add_argument(
         '--cfg-options',
         nargs = '+',
@@ -208,6 +209,17 @@ def main():
             out_dir = args.show_dir
         result_visualizer.show_result(dataset, outputs, out_dir)
     else:
+        if args.show_ground_truth:
+            if args.show_dir is None:
+                assert args.prediction_path is not None
+                out_dir = os.path.join(args.prediction_path, 'show_dir', 'ground_truth')
+            else:
+                out_dir = os.path.join(args.show_dir, 'ground_truth')
+            if os.path.exists(out_dir):
+                print(f'output dir {out_dir} exists, skip ground truth')
+            else:
+                result_visualizer.show_result(dataset, None, out_dir, 'ground_truth')
+
         for prediction_path in os.listdir(args.prediction_path):
             if os.path.isfile(os.path.join(args.prediction_path, prediction_path)) and prediction_path.endswith('.pkl'):
                 outputs = mmcv.load(os.path.join(args.prediction_path, prediction_path))
@@ -223,16 +235,6 @@ def main():
                 print(f'prediction_path: {os.path.join(args.prediction_path, prediction_path)}, '
                       f'out_dir: {out_dir}, prediction_name: {prediction_name}')
                 result_visualizer.show_result(dataset, outputs, out_dir, prediction_name)
-
-        if args.show_dir is None:
-            assert args.prediction_path is not None
-            out_dir = os.path.join(args.prediction_path, 'show_dir', 'ground_truth')
-        else:
-            out_dir = os.path.join(args.show_dir, 'ground_truth')
-        if os.path.exists(out_dir):
-            print(f'output dir {out_dir} exists, skip ground truth')
-        else:
-            result_visualizer.show_result(dataset, None, out_dir, 'ground_truth')
 
 
 if __name__ == '__main__':
