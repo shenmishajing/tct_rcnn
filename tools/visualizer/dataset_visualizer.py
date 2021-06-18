@@ -46,9 +46,10 @@ class ResultVisualizer:
            Default: 0
     """
 
-    def __init__(self, categories, score_thr = 0):
+    def __init__(self, categories, score_thr = 0, show_gt_nums = True):
         self.categories = categories
         self.score_thr = score_thr
+        self.show_gt_nums = show_gt_nums
 
     # 坐标顺序： 上-》左-》下-》右
     def draw_bounding_box_on_image(self,
@@ -94,24 +95,22 @@ class ResultVisualizer:
             labels = data_info['ann_info']['labels']
             bboxes = data_info['ann_info']['bboxes']
         else:
-            labels = []
-            bboxes = []
+            labels, bboxes = [], []
             for label, bbox in enumerate(result):
                 labels.extend([label for _ in range(len(bbox))])
                 bboxes.append(bbox)
-            labels = np.array(labels)
-            bboxes = np.concatenate(bboxes)
-            gt_num = len(data_info['ann_info']['labels'])
-            if gt_num < len(labels):
-                inds = np.argpartition(bboxes[:, -1], -gt_num)[-gt_num:]
-                labels = labels[inds]
-                bboxes = bboxes[inds, :4]
-            else:
-                bboxes = bboxes[:, :4]
+            labels, bboxes = np.array(labels), np.concatenate(bboxes)
+            inds = bboxes[:, -1] > self.score_thr
+            labels, bboxes = labels[inds], bboxes[inds]
+            if self.show_gt_nums:
+                gt_num = len(data_info['ann_info']['labels'])
+                if gt_num < len(labels):
+                    inds = np.argpartition(bboxes[:, -1], -gt_num)[-gt_num:]
+                    labels, bboxes = labels[inds], bboxes[inds]
         for label, bbox in zip(labels, bboxes):
-            if bbox[-1] >= self.score_thr:
-                self.draw_bounding_box_on_image(img, *[int(b) for b in bbox[:4]], color = self.categories[label]['color'],
-                                                display_str = self.categories[label]['name'] + f'|{bbox[-1]:.2f}')
+            self.draw_bounding_box_on_image(img, *[int(b) for b in bbox[:4]], color = self.categories[label]['color'],
+                                            display_str = self.categories[label]['name'] + (
+                                                f'|{bbox[-1]:.2f}' if len(bbox) > 4 else ''))
         cv2.imwrite(out_path, img)
 
     def show_result(self,
@@ -159,6 +158,7 @@ def parse_args():
         type = float,
         default = 0,
         help = 'score threshold (default: 0.)')
+    parser.add_argument('--show-gt-nums', action = 'store_true', help = 'whether only show top #gt det bboxes')
     parser.add_argument(
         '--cfg-options',
         nargs = '+',
@@ -192,7 +192,7 @@ def main():
     for label, category_id in enumerate(dataset.cat_ids[dataset.part]):
         category_item = {'label': label, 'name': dataset.CLASSES[label], 'color': get_color(dataset.CLASSES[label])}
         categories.append(category_item)
-    result_visualizer = ResultVisualizer(categories, args.show_score_thr)
+    result_visualizer = ResultVisualizer(categories, args.show_score_thr, args.show_gt_nums)
     if args.prediction_path is None or os.path.isfile(args.prediction_path):
         if args.prediction_path is not None:
             outputs = mmcv.load(args.prediction_path)
