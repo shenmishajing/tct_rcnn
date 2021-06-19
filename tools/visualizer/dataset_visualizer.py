@@ -153,7 +153,7 @@ def parse_args():
         group = parser.add_mutually_exclusive_group(required = False)
         group.add_argument('--' + name, dest = name.replace('-', '_'), action = 'store_true', help = help)
         group.add_argument('--no-' + name, dest = name.replace('-', '_'), action = 'store_false', help = help)
-        parser.set_defaults(**{name: default})
+        parser.set_defaults(**{name.replace('-', '_'): default})
 
     parser = argparse.ArgumentParser(
         description = 'MMDet eval image prediction result for each')
