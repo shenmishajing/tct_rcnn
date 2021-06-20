@@ -1,3 +1,5 @@
+import os
+import pickle
 import torch
 import torch.nn as nn
 
@@ -36,6 +38,7 @@ class TCTRoIHead(CascadeRoIHead):
         self.distance_fc2 = nn.Linear(self.bbox_head[self.stages[-1]].fc_out_channels, self.distance_fc_dim)
         self.relu = nn.ReLU(inplace = True)
         self.norm = nn.LayerNorm([self.distance_fc_dim])
+        self.pos_bbox_label_matrix_iter = 0
 
     def init_bbox_head(self, bbox_roi_extractor, bbox_head):
         """Initialize box head and box roi extractor.
@@ -90,6 +93,13 @@ class TCTRoIHead(CascadeRoIHead):
         bbox_targets = self.bbox_head[stage].get_targets(
             sampling_results, gt_bboxes, gt_labels, rcnn_train_cfg)
         if isinstance(self.bbox_head[stage], TCTBBoxHead):
+            self.pos_bbox_label_matrix_iter += 1
+            pos_bbox_label_matrix = bbox_targets[-1].cpu().numpy()
+            pos_bbox_label_matrix_save_path = '/data/zhengwenhao/Datasets/TCTDataSet/middle_results/pos_bbox_label_matrix'
+            pos_bbox_label_matrix_save_name = f'pos_bbox_label_matrix_iter_{self.pos_bbox_label_matrix_iter}.pkl'
+            if not os.path.exists(pos_bbox_label_matrix_save_path):
+                os.makedirs(pos_bbox_label_matrix_save_path)
+            pickle.dump(pos_bbox_label_matrix, open(os.path.join(pos_bbox_label_matrix_save_path, pos_bbox_label_matrix_save_name), 'wb'))
             pos_bbox_feats = []
             for i in range(len(sampling_results)):
                 if len(sampling_results[i].pos_inds) > 0:
