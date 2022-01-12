@@ -1,7 +1,5 @@
 import argparse
 import os
-import json
-from collections import defaultdict
 import numpy as np
 import colorsys
 import cv2
@@ -204,10 +202,10 @@ def main():
     cfg.data.test.pop('samples_per_gpu', 0)
     cfg.data.test.pipeline = get_loading_pipeline(cfg.data.train.pipeline)
     dataset = build_dataset(cfg.data.test)
-    categories = []
+    categories = {}
     for label, category_id in enumerate(dataset.cat_ids[dataset.part]):
-        category_item = {'label': label, 'name': dataset.CLASSES[label], 'color': get_color(dataset.CLASSES[label])}
-        categories.append(category_item)
+        name = dataset.CLASSES[label]
+        categories[label] = {'name': name, 'color': get_color(name)}
     result_visualizer = ResultVisualizer(categories, args.show_score_thr, args.show_gt_nums)
     if args.prediction_path is None or os.path.isfile(args.prediction_path):
         if args.prediction_path is not None:
