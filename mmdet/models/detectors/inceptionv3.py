@@ -3,7 +3,7 @@ import logging
 import torch
 import torch.nn as nn
 from torchvision.models.inception import Inception3
-from torchvision.models.utils import load_state_dict_from_url
+from torch.utils.model_zoo import load_url as load_state_dict_from_url
 
 from mmcv.runner import load_checkpoint
 
