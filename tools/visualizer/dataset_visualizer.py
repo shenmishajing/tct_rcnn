@@ -90,7 +90,7 @@ class ResultVisualizer:
         cv2.putText(img, display_str, (left, top - 2), fontScale = font_scale, fontFace = font_face, thickness = thickness,
                     color = (256, 256, 256))
 
-    def _save_image_results(self, data_info, result = None, out_path = None):
+    def _save_image_results(self, data_info, result = None, out_path = None, ignore = None):
         img = cv2.imread(data_info['filename'])
         if result is None:
             labels = data_info['ann_info']['labels']
@@ -110,7 +110,13 @@ class ResultVisualizer:
             if gt_num < len(labels):
                 inds = np.argpartition(bboxes[:, -1], -gt_num)[-gt_num:]
                 labels, bboxes = labels[inds], bboxes[inds]
-        for label, bbox in zip(labels, bboxes):
+        if ignore:
+            res = [[l, b] for l, b in zip(labels, bboxes)]
+            res.sort(key = lambda x: x[1][0])
+            labels, bboxes = zip(*res)
+        for i, (label, bbox) in enumerate(zip(labels, bboxes)):
+            if ignore and i in ignore:
+                continue
             self.draw_bounding_box_on_image(img, *[int(b) for b in bbox[:4]], color = self.categories[label]['color'],
                                             display_str = self.categories[label]['name'] + (
                                                 f'|{bbox[-1]:.2f}' if len(bbox) > 4 else ''))
